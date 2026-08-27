@@ -34,15 +34,43 @@ this container and automatically responds when its size changes.
 Paste the import map from `index.html` into the page's **Inside `<head>` tag**
 custom code.
 
-### 3. Host the model
+### 3. Load the model through jsDelivr
 
-Webflow's Assets panel does not support `.glb` files. Host
-`Lighthouse_Model.glb` on a public CDN or static host that permits cross-origin
-requests, then update this line near the top of `main.js`:
+Webflow's Assets panel does not support `.glb` files. This project can instead
+load the model through jsDelivr directly from a public GitHub repository. GitHub
+Pages does not need to be enabled.
+
+Commit and push this model path to the public repository:
+
+```text
+models/Lighthouse_Model.glb
+```
+
+Build its jsDelivr URL using this format:
+
+```text
+https://cdn.jsdelivr.net/gh/USERNAME/REPOSITORY@BRANCH/models/Lighthouse_Model.glb
+```
+
+For example, while developing from the `main` branch:
 
 ```js
-const modelUrl = "https://your-cdn.example/Lighthouse_Model.glb";
+const modelUrl =
+  "https://cdn.jsdelivr.net/gh/USERNAME/REPOSITORY@main/models/Lighthouse_Model.glb";
 ```
+
+For the published site, use a Git tag or commit hash so later repository changes
+cannot unexpectedly alter the live model:
+
+```js
+const modelUrl =
+  "https://cdn.jsdelivr.net/gh/USERNAME/REPOSITORY@v1.0.0/models/Lighthouse_Model.glb";
+```
+
+Replace `USERNAME`, `REPOSITORY`, and the branch, tag, or commit with the real
+values. Paths and filenames are case-sensitive. Open the finished URL directly
+in a browser to verify it works, then paste it into the `modelUrl` setting near
+the top of `main.js`.
 
 ### 4. Add the styles
 
