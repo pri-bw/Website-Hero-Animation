@@ -49,14 +49,14 @@ models/Lighthouse_Model.glb
 Build its jsDelivr URL using this format:
 
 ```text
-https://cdn.jsdelivr.net/gh/USERNAME/REPOSITORY@BRANCH/models/Lighthouse_Model.glb
+https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@main/models/Lighthouse_Model.glb
 ```
 
 For example, while developing from the `main` branch:
 
 ```js
 const modelUrl =
-  "https://cdn.jsdelivr.net/gh/USERNAME/REPOSITORY@main/models/Lighthouse_Model.glb";
+  "https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@main/models/Lighthouse_Model.glb";
 ```
 
 For the published site, use a Git tag or commit hash so later repository changes
@@ -64,13 +64,12 @@ cannot unexpectedly alter the live model:
 
 ```js
 const modelUrl =
-  "https://cdn.jsdelivr.net/gh/USERNAME/REPOSITORY@v1.0.0/models/Lighthouse_Model.glb";
+  "https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@v1.0.0/models/Lighthouse_Model.glb";
 ```
 
-Replace `USERNAME`, `REPOSITORY`, and the branch, tag, or commit with the real
-values. Paths and filenames are case-sensitive. Open the finished URL directly
-in a browser to verify it works, then paste it into the `modelUrl` setting near
-the top of `main.js`.
+Paths and filenames are case-sensitive. Open the finished URL directly in a
+browser to verify it works. For production, replace `main` with a release tag or
+commit hash after creating one in the repository.
 
 ### 4. Add the styles
 

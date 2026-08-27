@@ -9,7 +9,8 @@ if (!container) {
 }
 
 // Webflow does not host .glb files; replace this with a public CDN URL.
-const modelUrl = "./models/Lighthouse_Model.glb";
+const modelUrl =
+  "https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@main/models/Lighthouse_Model.glb";
 
 // Scene and spotlight
 const scene = new THREE.Scene();
