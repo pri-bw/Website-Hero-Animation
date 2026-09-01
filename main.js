@@ -16,35 +16,54 @@ const modelUrl =
 const scene = new THREE.Scene();
 let lighthouseBeam;
 let pointerIsInside = false;
+let pointerX = 0;
+let pointerY = 0;
 
 // Beam interaction settings
-const baseBeamYaw = THREE.MathUtils.degToRad(-110);
-const baseBeamTilt = THREE.MathUtils.degToRad(-2);
+const baseBeamStartYaw = THREE.MathUtils.degToRad(-110);
+const baseBeamEndYaw = THREE.MathUtils.degToRad(-78);
+const baseBeamStartTilt = THREE.MathUtils.degToRad(-2);
+const baseBeamEndTilt = THREE.MathUtils.degToRad(-6);
 const horizontalRange = THREE.MathUtils.degToRad(30);
 const verticalRange = THREE.MathUtils.degToRad(16);
 const followSpeed = 0.07;
 const automaticRotationSpeed = 0.005;
+const scrollFollowSpeed = 0.08;
 
-let targetBeamYaw = baseBeamYaw;
-let targetBeamTilt = baseBeamTilt;
+let targetScrollProgress = 0;
+let scrollProgress = 0;
 
-const spotlight = new THREE.SpotLight(0x0E345E, 2000);
+const spotlight = new THREE.SpotLight(
+  0x0e345e, // colour
+  500, // intensity
+  16, // maximum distance
+  Math.PI / 5, // cone angle
+  0.8, // soft edge
+  2, // distance decay
+);
 spotlight.position.set(0, 10, 8);
-spotlight.angle = Math.PI / 4;
-spotlight.penumbra = 0.6;
-spotlight.target.position.set(0, 2, 0);
+spotlight.target.position.set(0, 5, 0);
 scene.add(spotlight);
 scene.add(spotlight.target);
 
-// Camera
+// Camera positions at the start and end of the parent section's scroll.
+const cameraStartPosition = new THREE.Vector3(-6, -4, 32);
+const cameraEndPosition = new THREE.Vector3(4, 2.4, 18);
+const cameraStartTilt = THREE.MathUtils.degToRad(18);
+const cameraEndTilt = THREE.MathUtils.degToRad(2);
+const cameraStartZoom = 1;
+const cameraEndZoom = 1.15;
+
 const camera = new THREE.PerspectiveCamera(
   24,
   1,
   0.1,
   1000,
 );
-camera.position.set(-6, -4, 32);
-camera.rotation.x = THREE.MathUtils.degToRad(18);
+camera.position.copy(cameraStartPosition);
+camera.rotation.x = cameraStartTilt;
+camera.zoom = cameraStartZoom;
+camera.updateProjectionMatrix();
 
 // Renderer
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
@@ -71,6 +90,27 @@ const resizeObserver = new ResizeObserver(resizeScene);
 resizeObserver.observe(container);
 resizeScene();
 
+// Convert the parent section's scroll distance into a value from 0 to 1.
+const scrollSection = container.parentElement;
+
+function updateScrollProgress() {
+  const sectionBounds = scrollSection.getBoundingClientRect();
+  const scrollDistance = Math.max(
+    scrollSection.offsetHeight - window.innerHeight,
+    1,
+  );
+
+  targetScrollProgress = THREE.MathUtils.clamp(
+    -sectionBounds.top / scrollDistance,
+    0,
+    1,
+  );
+}
+
+window.addEventListener("scroll", updateScrollProgress, { passive: true });
+window.addEventListener("resize", updateScrollProgress);
+updateScrollProgress();
+
 // Track the pointer without letting the canvas block Webflow links or buttons.
 window.addEventListener("pointermove", (event) => {
   const bounds = container.getBoundingClientRect();
@@ -94,11 +134,8 @@ window.addEventListener("pointermove", (event) => {
 
   pointerIsInside = true;
 
-  const pointerX = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
-  const pointerY = 1 - ((event.clientY - bounds.top) / bounds.height) * 2;
-
-  targetBeamYaw = baseBeamYaw + pointerX * horizontalRange;
-  targetBeamTilt = baseBeamTilt + pointerY * verticalRange;
+  pointerX = ((event.clientX - bounds.left) / bounds.width) * 2 - 1;
+  pointerY = 1 - ((event.clientY - bounds.top) / bounds.height) * 2;
 });
 
 window.addEventListener("blur", () => {
@@ -183,7 +220,10 @@ loader.load(
     const lighthouse = gltf.scene;
 
     const lighthouseMaterial = new THREE.MeshStandardMaterial({
-      color: 0x031224,
+      // Navy remains visible below while the white surface receives blue light.
+      color: 0xffffff,
+      emissive: 0x031224,
+      emissiveIntensity: 1,
       roughness: 0.85,
       metalness: 0,
       flatShading: false,
@@ -247,8 +287,47 @@ loader.load(
 
 // Follow the pointer while it is inside; rotate automatically while it is outside.
 renderer.setAnimationLoop(() => {
+  scrollProgress = THREE.MathUtils.lerp(
+    scrollProgress,
+    targetScrollProgress,
+    scrollFollowSpeed,
+  );
+  camera.position.lerpVectors(
+    cameraStartPosition,
+    cameraEndPosition,
+    scrollProgress,
+  );
+
+  // Position, zoom, and tilt all use the full scroll duration.
+  camera.zoom = THREE.MathUtils.lerp(
+    cameraStartZoom,
+    cameraEndZoom,
+    scrollProgress,
+  );
+  camera.rotation.x = THREE.MathUtils.lerp(
+    cameraStartTilt,
+    cameraEndTilt,
+    scrollProgress,
+  );
+  camera.updateProjectionMatrix();
+
   if (lighthouseBeam) {
+    // Keep the cursor controls centred on the camera as it moves.
+    const currentBaseYaw = THREE.MathUtils.lerp(
+      baseBeamStartYaw,
+      baseBeamEndYaw,
+      scrollProgress,
+    );
+    const currentBaseTilt = THREE.MathUtils.lerp(
+      baseBeamStartTilt,
+      baseBeamEndTilt,
+      scrollProgress,
+    );
+
     if (pointerIsInside) {
+      const targetBeamYaw = currentBaseYaw + pointerX * horizontalRange;
+      const targetBeamTilt = currentBaseTilt + pointerY * verticalRange;
+
       lighthouseBeam.rotation.y = THREE.MathUtils.lerp(
         lighthouseBeam.rotation.y,
         targetBeamYaw,
@@ -263,7 +342,7 @@ renderer.setAnimationLoop(() => {
       lighthouseBeam.rotation.y += automaticRotationSpeed;
       lighthouseBeam.rotation.z = THREE.MathUtils.lerp(
         lighthouseBeam.rotation.z,
-        baseBeamTilt,
+        currentBaseTilt,
         followSpeed,
       );
     }
