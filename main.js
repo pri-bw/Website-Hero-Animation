@@ -21,21 +21,31 @@ let pointerY = 0;
 
 // Beam interaction settings
 const baseBeamStartYaw = THREE.MathUtils.degToRad(-110);
-const baseBeamEndYaw = THREE.MathUtils.degToRad(-78);
+const baseBeamEndYaw = THREE.MathUtils.degToRad(-72);
 const baseBeamStartTilt = THREE.MathUtils.degToRad(-2);
 const baseBeamEndTilt = THREE.MathUtils.degToRad(-6);
-const horizontalRange = THREE.MathUtils.degToRad(30);
-const verticalRange = THREE.MathUtils.degToRad(16);
+const horizontalStartRange = THREE.MathUtils.degToRad(30);
+const horizontalEndRange = THREE.MathUtils.degToRad(10);
+const verticalStartRange = THREE.MathUtils.degToRad(16);
+const verticalEndRange = THREE.MathUtils.degToRad(10);
 const followSpeed = 0.07;
 const automaticRotationSpeed = 0.005;
 const scrollFollowSpeed = 0.08;
+const cameraScrollEnd = 0.8;
+const beamStartWidth = 1;
+const beamEndWidth = 0.4;
+const maxPixelRatio = 1.5;
 
 let targetScrollProgress = 0;
 let scrollProgress = 0;
+let scrollNeedsUpdate = true;
+
+const spotlightStartIntensity = 200;
+const spotlightEndIntensity = 800;
 
 const spotlight = new THREE.SpotLight(
   0x0e345e, // colour
-  500, // intensity
+  spotlightStartIntensity,
   16, // maximum distance
   Math.PI / 5, // cone angle
   0.8, // soft edge
@@ -66,12 +76,18 @@ camera.zoom = cameraStartZoom;
 camera.updateProjectionMatrix();
 
 // Renderer
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({
+  antialias: true,
+  alpha: true,
+  powerPreference: "high-performance",
+});
 renderer.setClearColor(0x000000, 0);
-renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, maxPixelRatio));
 renderer.outputColorSpace = THREE.SRGBColorSpace;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
 renderer.toneMappingExposure = 1.2;
+renderer.domElement.style.display = "block";
+renderer.domElement.style.maxWidth = "100%";
 container.appendChild(renderer.domElement);
 
 // Size the canvas to the Webflow hero rather than the browser window.
@@ -83,7 +99,8 @@ function resizeScene() {
 
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
-  renderer.setSize(width, height, false);
+  // Also update the CSS size so the high-DPI buffer cannot overflow Webflow.
+  renderer.setSize(width, height);
 }
 
 const resizeObserver = new ResizeObserver(resizeScene);
@@ -107,8 +124,12 @@ function updateScrollProgress() {
   );
 }
 
-window.addEventListener("scroll", updateScrollProgress, { passive: true });
-window.addEventListener("resize", updateScrollProgress);
+window.addEventListener("scroll", () => {
+  scrollNeedsUpdate = true;
+}, { passive: true });
+window.addEventListener("resize", () => {
+  scrollNeedsUpdate = true;
+});
 updateScrollProgress();
 
 // Track the pointer without letting the canvas block Webflow links or buttons.
@@ -151,7 +172,7 @@ function createLightBeam() {
     originRadius,
     radius,
     length,
-    48,
+    32,
     1,
     true,
   );
@@ -182,7 +203,7 @@ function createLightBeam() {
 
       void main() {
         float distanceFromOrb = 1.0 - vUv.y;
-        float originFade = smoothstep(0.0, 0.4, distanceFromOrb);
+        float originFade = smoothstep(0.0, 0.2, distanceFromOrb);
         float distanceFade = pow(1.0 - distanceFromOrb, 1.1);
 
         vec3 viewDirection = normalize(-vViewPosition);
@@ -190,7 +211,7 @@ function createLightBeam() {
         float edgeSoftness = mix(0.9, 1.8, distanceFromOrb);
         float edgeFade = smoothstep(0.0, edgeSoftness, facing);
 
-        float opacity = originFade * distanceFade * edgeFade * 0.2;
+        float opacity = originFade * distanceFade * edgeFade * 0.6;
         gl_FragColor = vec4(beamColor, opacity);
         #include <colorspace_fragment>
       }
@@ -270,7 +291,7 @@ loader.load(
 
     // Add these after traversal so their materials are not replaced.
     if (orb) {
-      const orbLight = new THREE.PointLight(0xffe9ac, 10, 1.5, 2);
+      const orbLight = new THREE.PointLight(0xffe9ac, 2, 1.5, 1);
       orb.add(orbLight);
 
       lighthouseBeam = createLightBeam();
@@ -285,68 +306,140 @@ loader.load(
   },
 );
 
+// Pause all WebGL work when the hero or browser tab is not visible.
+let sceneIsVisible = true;
+let animationIsRunning = false;
+let previousFrameTime = performance.now();
+
+function updateAnimationState() {
+  const shouldRun = sceneIsVisible && !document.hidden;
+
+  if (shouldRun && !animationIsRunning) {
+    previousFrameTime = performance.now();
+    renderer.setAnimationLoop(animate);
+    animationIsRunning = true;
+  } else if (!shouldRun && animationIsRunning) {
+    renderer.setAnimationLoop(null);
+    animationIsRunning = false;
+  }
+}
+
+const visibilityObserver = new IntersectionObserver(([entry]) => {
+  sceneIsVisible = entry.isIntersecting;
+  updateAnimationState();
+});
+visibilityObserver.observe(container);
+
+document.addEventListener("visibilitychange", updateAnimationState);
+
 // Follow the pointer while it is inside; rotate automatically while it is outside.
-renderer.setAnimationLoop(() => {
+function animate(time) {
+  const delta = Math.min((time - previousFrameTime) / 1000, 0.05);
+  previousFrameTime = time;
+  const frameScale = delta * 60;
+  const scrollAlpha = 1 - Math.pow(1 - scrollFollowSpeed, frameScale);
+  const followAlpha = 1 - Math.pow(1 - followSpeed, frameScale);
+
+  if (scrollNeedsUpdate) {
+    updateScrollProgress();
+    scrollNeedsUpdate = false;
+  }
+
   scrollProgress = THREE.MathUtils.lerp(
     scrollProgress,
     targetScrollProgress,
-    scrollFollowSpeed,
+    scrollAlpha,
+  );
+
+  // Reach the final camera values at 80% scroll, then hold them.
+  const cameraProgress = THREE.MathUtils.clamp(
+    scrollProgress / cameraScrollEnd,
+    0,
+    1,
   );
   camera.position.lerpVectors(
     cameraStartPosition,
     cameraEndPosition,
-    scrollProgress,
+    cameraProgress,
   );
 
-  // Position, zoom, and tilt all use the full scroll duration.
-  camera.zoom = THREE.MathUtils.lerp(
+  // Position, zoom, and tilt share the same camera timeline.
+  const nextCameraZoom = THREE.MathUtils.lerp(
     cameraStartZoom,
     cameraEndZoom,
-    scrollProgress,
+    cameraProgress,
   );
+  const zoomChanged = Math.abs(camera.zoom - nextCameraZoom) > 0.0001;
+  camera.zoom = nextCameraZoom;
   camera.rotation.x = THREE.MathUtils.lerp(
     cameraStartTilt,
     cameraEndTilt,
+    cameraProgress,
+  );
+  if (zoomChanged) camera.updateProjectionMatrix();
+
+  spotlight.intensity = THREE.MathUtils.lerp(
+    spotlightStartIntensity,
+    spotlightEndIntensity,
     scrollProgress,
   );
-  camera.updateProjectionMatrix();
 
   if (lighthouseBeam) {
+    const beamWidth = THREE.MathUtils.lerp(
+      beamStartWidth,
+      beamEndWidth,
+      cameraProgress,
+    );
+    lighthouseBeam.scale.y = beamWidth;
+    lighthouseBeam.scale.z = beamWidth;
+
     // Keep the cursor controls centred on the camera as it moves.
     const currentBaseYaw = THREE.MathUtils.lerp(
       baseBeamStartYaw,
       baseBeamEndYaw,
-      scrollProgress,
+      cameraProgress,
     );
     const currentBaseTilt = THREE.MathUtils.lerp(
       baseBeamStartTilt,
       baseBeamEndTilt,
-      scrollProgress,
+      cameraProgress,
+    );
+    const currentHorizontalRange = THREE.MathUtils.lerp(
+      horizontalStartRange,
+      horizontalEndRange,
+      cameraProgress,
+    );
+    const currentVerticalRange = THREE.MathUtils.lerp(
+      verticalStartRange,
+      verticalEndRange,
+      cameraProgress,
     );
 
     if (pointerIsInside) {
-      const targetBeamYaw = currentBaseYaw + pointerX * horizontalRange;
-      const targetBeamTilt = currentBaseTilt + pointerY * verticalRange;
+      const targetBeamYaw = currentBaseYaw + pointerX * currentHorizontalRange;
+      const targetBeamTilt = currentBaseTilt + pointerY * currentVerticalRange;
 
       lighthouseBeam.rotation.y = THREE.MathUtils.lerp(
         lighthouseBeam.rotation.y,
         targetBeamYaw,
-        followSpeed,
+        followAlpha,
       );
       lighthouseBeam.rotation.z = THREE.MathUtils.lerp(
         lighthouseBeam.rotation.z,
         targetBeamTilt,
-        followSpeed,
+        followAlpha,
       );
     } else {
-      lighthouseBeam.rotation.y += automaticRotationSpeed;
+      lighthouseBeam.rotation.y += automaticRotationSpeed * frameScale;
       lighthouseBeam.rotation.z = THREE.MathUtils.lerp(
         lighthouseBeam.rotation.z,
         currentBaseTilt,
-        followSpeed,
+        followAlpha,
       );
     }
   }
 
   renderer.render(scene, camera);
-});
+}
+
+updateAnimationState();
