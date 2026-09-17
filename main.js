@@ -46,8 +46,8 @@ let targetScrollProgress = 0;
 let scrollProgress = 0;
 let scrollNeedsUpdate = true;
 
-const spotlightStartIntensity = 8000;
-const spotlightEndIntensity = 18000;
+const spotlightStartIntensity = 4000;
+const spotlightEndIntensity = 12000;
 
 const spotlight = new THREE.SpotLight(
   0x0e345e, // colour
