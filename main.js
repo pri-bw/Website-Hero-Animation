@@ -8,13 +8,19 @@ if (!container) {
   throw new Error('Missing an element with the ID "lighthouse-scene".');
 }
 
-// Webflow does not host .glb files; replace this with a public CDN URL.
-const modelUrl =
-  "https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@main/models/Lighthouse_Model.glb";
+// Local testing: serve this project through a local web server.
+const modelUrl = new URL("./models/Lighthouse_Model.glb", import.meta.url).href;
+
+// Webflow deployment: comment out the local modelUrl above and uncomment below.
+// const modelUrl =
+//   "https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@main/models/Lighthouse_Model.glb";
 
 // Scene and spotlight
 const scene = new THREE.Scene();
 let lighthouseBeam;
+let beamRotationCompensation;
+const beamReferenceOrientation = new THREE.Quaternion();
+const beamParentOrientation = new THREE.Quaternion();
 let pointerIsInside = false;
 let pointerX = 0;
 let pointerY = 0;
@@ -40,8 +46,8 @@ let targetScrollProgress = 0;
 let scrollProgress = 0;
 let scrollNeedsUpdate = true;
 
-const spotlightStartIntensity = 200;
-const spotlightEndIntensity = 800;
+const spotlightStartIntensity = 8000;
+const spotlightEndIntensity = 18000;
 
 const spotlight = new THREE.SpotLight(
   0x0e345e, // colour
@@ -55,6 +61,24 @@ spotlight.position.set(0, 10, 8);
 spotlight.target.position.set(0, 5, 0);
 scene.add(spotlight);
 scene.add(spotlight.target);
+
+// Lighthouse rotation in degrees: x = forward tilt, y = turn, z = sideways lean.
+// Positive x tilts the top towards the camera on the +Z side.
+const lighthouseStartRotation = { x: 0, y: -20, z: 0 };
+const lighthouseEndRotation = { x: 0, y: 20, z: 0 };
+
+// Rotate a parent group so the GLB's own transforms remain intact.
+const lighthousePivot = new THREE.Group();
+scene.add(lighthousePivot);
+
+function updateLighthouseRotation(progress) {
+  lighthousePivot.rotation.set(
+    THREE.MathUtils.degToRad(THREE.MathUtils.lerp(lighthouseStartRotation.x, lighthouseEndRotation.x, progress)),
+    THREE.MathUtils.degToRad(THREE.MathUtils.lerp(lighthouseStartRotation.y, lighthouseEndRotation.y, progress)),
+    THREE.MathUtils.degToRad(THREE.MathUtils.lerp(lighthouseStartRotation.z, lighthouseEndRotation.z, progress)),
+  );
+}
+updateLighthouseRotation(0);
 
 // Camera positions at the start and end of the parent section's scroll.
 const cameraStartPosition = new THREE.Vector3(-6, -4, 32);
@@ -233,22 +257,12 @@ function createLightBeam() {
   return pivot;
 }
 
-// Load the lighthouse and create its materials
+// Load the lighthouse and override only the glass and light materials.
 const loader = new GLTFLoader();
 loader.load(
   modelUrl,
   (gltf) => {
     const lighthouse = gltf.scene;
-
-    const lighthouseMaterial = new THREE.MeshStandardMaterial({
-      // Navy remains visible below while the white surface receives blue light.
-      color: 0xffffff,
-      emissive: 0x031224,
-      emissiveIntensity: 1,
-      roughness: 0.85,
-      metalness: 0,
-      flatShading: false,
-    });
 
     const glassMaterial = new THREE.MeshPhysicalMaterial({
       color: 0xffe9ac,
@@ -273,21 +287,23 @@ loader.load(
 
     let orb;
 
-    // Assign materials to the named model parts.
+    // Preserve the imported materials on all other model parts.
     lighthouse.traverse((child) => {
       if (!child.isMesh) return;
 
-      child.geometry.computeVertexNormals();
+      // Keep exported normals; generate them only if the model has none.
+      if (!child.geometry.attributes.normal) child.geometry.computeVertexNormals();
 
       if (child.name === "Tower_Glass") {
         child.material = glassMaterial;
       } else if (child.name === "Sphere001" || child.name === "Sphere.001") {
         child.material = orbMaterial;
         orb = child;
-      } else {
-        child.material = lighthouseMaterial;
+
       }
     });
+
+    lighthousePivot.add(lighthouse);
 
     // Add these after traversal so their materials are not replaced.
     if (orb) {
@@ -295,16 +311,34 @@ loader.load(
       orb.add(orbLight);
 
       lighthouseBeam = createLightBeam();
-      orb.add(lighthouseBeam);
+      beamRotationCompensation = new THREE.Group();
+      orb.add(beamRotationCompensation);
+      beamRotationCompensation.add(lighthouseBeam);
+
+      // Retain the original GLB orientation without the scroll rotation.
+      orb.getWorldQuaternion(beamReferenceOrientation);
+      beamParentOrientation.copy(lighthousePivot.quaternion).invert();
+      beamReferenceOrientation.premultiply(beamParentOrientation);
+      updateBeamCompensation();
     }
 
-    scene.add(lighthouse);
+
   },
   undefined,
   (error) => {
     console.error("Could not load the lighthouse model:", error);
   },
 );
+
+// Cancel inherited rotation while the beam origin continues to follow the orb.
+function updateBeamCompensation() {
+  if (!beamRotationCompensation) return;
+  beamRotationCompensation.parent.getWorldQuaternion(beamParentOrientation);
+  beamRotationCompensation.quaternion
+    .copy(beamParentOrientation)
+    .invert()
+    .multiply(beamReferenceOrientation);
+}
 
 // Pause all WebGL work when the hero or browser tab is not visible.
 let sceneIsVisible = true;
@@ -357,6 +391,10 @@ function animate(time) {
     0,
     1,
   );
+  // Rotate the lighthouse on the same timeline as the camera.
+  updateLighthouseRotation(cameraProgress);
+  updateBeamCompensation();
+
   camera.position.lerpVectors(
     cameraStartPosition,
     cameraEndPosition,

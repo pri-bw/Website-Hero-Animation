@@ -1,10 +1,8 @@
-# Faros lighthouse hero for Webflow
+# Lighthouse Hero Animation for Faros Medworks 
 
-This project renders an interactive Three.js lighthouse inside a Webflow hero.
-The scene remains sticky while a 200vh parent scrolls. During that scroll, the
-camera moves and zooms, the top spotlight becomes brighter, and the lighthouse
-beam becomes narrower. The beam follows the pointer while it is over the scene
-and rotates automatically when the pointer is outside it.
+This project renders an interactive Three.js lighthouse inside a sticky scrollable section.
+During that scroll, the camera moves and zooms, the top spotlight becomes brighter, and the lighthouse beam becomes narrower.
+The beam follows the pointer while it is over the scene and rotates automatically when the pointer is outside it.
 
 ## Files used by the Webflow page
 
