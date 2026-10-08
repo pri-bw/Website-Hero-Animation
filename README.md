@@ -4,6 +4,16 @@ This project renders an interactive Three.js lighthouse inside a sticky scrollab
 During that scroll, the camera moves and zooms, the top spotlight becomes brighter, and the lighthouse beam becomes narrower.
 The beam follows the pointer while it is over the scene and rotates automatically when the pointer is outside it.
 
+On screens up to 767px wide (and touch devices up to 500px tall in landscape),
+the lighthouse starts horizontally centered with only its upper half visible
+above the bottom edge. The camera starts below the model midpoint, looking up
+by 4 degrees. Scrolling moves it closer for approximately 25% growth while
+raising and leveling the camera for a head-on view. The tower stays centered
+and rises slightly in the frame without rotating. Framing uses the model bounds
+and reserves horizontal space for the final view. This move finishes at 80% scroll.
+Touch gestures scroll the page without steering the beam. Desktop camera motion
+and mouse interaction remain unchanged.
+
 ## Files used by the Webflow page
 
 - `main.js` creates and animates the Three.js scene.

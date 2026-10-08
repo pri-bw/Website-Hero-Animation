@@ -9,11 +9,11 @@ if (!container) {
 }
 
 // Local testing: serve this project through a local web server.
-const modelUrl = new URL("./models/Lighthouse_Model.glb", import.meta.url).href;
+//const modelUrl = new URL("./models/Lighthouse_Model.glb", import.meta.url).href;
 
 // Webflow deployment: comment out the local modelUrl above and uncomment below.
-// const modelUrl =
-//   "https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@main/models/Lighthouse_Model.glb";
+ const modelUrl =
+   "https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@main/models/Lighthouse_Model.glb";
 
 // Scene and spotlight
 const scene = new THREE.Scene();
@@ -88,6 +88,26 @@ const cameraEndTilt = THREE.MathUtils.degToRad(2);
 const cameraStartZoom = 1;
 const cameraEndZoom = 1.15;
 
+// Phones reveal the upper half from slightly below, then move closer and level out.
+const mobileLayout = window.matchMedia("(max-width: 767px), (max-height: 500px) and (pointer: coarse)");
+const mobileModelCenter = new THREE.Vector3();
+const mobileModelSize = new THREE.Vector3();
+let mobileModelIsReady = false;
+let mobileStartDistance = 40;
+const mobileGrowth = 1.25;
+const mobileStartTilt = THREE.MathUtils.degToRad(4);
+
+function updateMobileFraming() {
+  if (!mobileModelIsReady) return;
+  const halfFovTangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
+  // The full tower spans about 80% of the height, with its lower half offscreen.
+  // Reserve horizontal space for the closer final view.
+  mobileStartDistance = Math.max(
+    mobileModelSize.y / (2 * halfFovTangent * 0.8),
+    mobileModelSize.x * mobileGrowth / (2 * halfFovTangent * camera.aspect * 0.8),
+  ) + mobileModelSize.z / 2;
+}
+
 const camera = new THREE.PerspectiveCamera(
   24,
   1,
@@ -123,6 +143,7 @@ function resizeScene() {
 
   camera.aspect = width / height;
   camera.updateProjectionMatrix();
+  updateMobileFraming();
   // Also update the CSS size so the high-DPI buffer cannot overflow Webflow.
   renderer.setSize(width, height);
 }
@@ -137,7 +158,7 @@ const scrollSection = container.parentElement;
 function updateScrollProgress() {
   const sectionBounds = scrollSection.getBoundingClientRect();
   const scrollDistance = Math.max(
-    scrollSection.offsetHeight - window.innerHeight,
+    scrollSection.offsetHeight - (mobileLayout.matches ? container.clientHeight : window.innerHeight),
     1,
   );
 
@@ -158,6 +179,11 @@ updateScrollProgress();
 
 // Track the pointer without letting the canvas block Webflow links or buttons.
 window.addEventListener("pointermove", (event) => {
+  // Touch gestures scroll the page; they should not latch the beam to a finger.
+  if (event.pointerType === "touch") {
+    pointerIsInside = false;
+    return;
+  }
   const bounds = container.getBoundingClientRect();
   const isInside =
     event.clientX >= bounds.left &&
@@ -305,6 +331,18 @@ loader.load(
 
     lighthousePivot.add(lighthouse);
 
+    // Measure only the model, before attaching the long decorative beam.
+    const previousRotation = lighthousePivot.quaternion.clone();
+    updateLighthouseRotation(0);
+    lighthousePivot.updateWorldMatrix(true, true);
+    const modelBounds = new THREE.Box3().setFromObject(lighthousePivot);
+    lighthousePivot.quaternion.copy(previousRotation);
+    lighthousePivot.updateWorldMatrix(true, true);
+    modelBounds.getCenter(mobileModelCenter);
+    modelBounds.getSize(mobileModelSize);
+    mobileModelIsReady = true;
+    updateMobileFraming();
+
     // Add these after traversal so their materials are not replaced.
     if (orb) {
       const orbLight = new THREE.PointLight(0xffe9ac, 2, 1.5, 1);
@@ -392,7 +430,7 @@ function animate(time) {
     1,
   );
   // Rotate the lighthouse on the same timeline as the camera.
-  updateLighthouseRotation(cameraProgress);
+  updateLighthouseRotation(mobileLayout.matches ? 0 : cameraProgress);
   updateBeamCompensation();
 
   camera.position.lerpVectors(
@@ -402,18 +440,43 @@ function animate(time) {
   );
 
   // Position, zoom, and tilt share the same camera timeline.
-  const nextCameraZoom = THREE.MathUtils.lerp(
+  let nextCameraZoom = THREE.MathUtils.lerp(
     cameraStartZoom,
     cameraEndZoom,
     cameraProgress,
   );
-  const zoomChanged = Math.abs(camera.zoom - nextCameraZoom) > 0.0001;
-  camera.zoom = nextCameraZoom;
   camera.rotation.x = THREE.MathUtils.lerp(
     cameraStartTilt,
     cameraEndTilt,
     cameraProgress,
   );
+  if (mobileLayout.matches && mobileModelIsReady) {
+    const distance = THREE.MathUtils.lerp(
+      mobileStartDistance,
+      mobileStartDistance / mobileGrowth,
+      cameraProgress,
+    );
+    const tilt = THREE.MathUtils.lerp(mobileStartTilt, 0, cameraProgress);
+    // Aim at the model midpoint from below, then rise to its height for a
+    // head-on finish. Projection framing places that midpoint at the bottom.
+    camera.position.set(
+      mobileModelCenter.x,
+      mobileModelCenter.y - Math.sin(tilt) * distance,
+      mobileModelCenter.z + Math.cos(tilt) * distance,
+    );
+    camera.rotation.set(tilt, 0, 0);
+    const width = container.clientWidth;
+    const height = container.clientHeight;
+    if (width && height) {
+      const framingOffset = THREE.MathUtils.lerp(0.5, 0.45, cameraProgress);
+      camera.setViewOffset(width, height, 0, -height * framingOffset, width, height);
+    }
+    nextCameraZoom = 1;
+  } else if (camera.view?.enabled) {
+    camera.clearViewOffset();
+  }
+  const zoomChanged = Math.abs(camera.zoom - nextCameraZoom) > 0.0001;
+  camera.zoom = nextCameraZoom;
   if (zoomChanged) camera.updateProjectionMatrix();
 
   spotlight.intensity = THREE.MathUtils.lerp(
