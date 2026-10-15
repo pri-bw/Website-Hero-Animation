@@ -11,6 +11,7 @@ if (!container) {
 // Webflow owns the label contents and typography. Only the outer positioning
 // wrappers are animated; their children can be ordinary elements or components.
 const labelLayer = container.querySelector(":scope > [data-service-labels]");
+const cmsSource = container.querySelector("[data-services-cms]");
 const serviceLabels = new Map();
 if (labelLayer) {
   for (const label of labelLayer.querySelectorAll("[data-service-label]")) {
@@ -364,6 +365,8 @@ function updateCamera(progress) {
   camera.setViewOffset(width, height, width * (0.5 - screenX), height * (0.5 - screenY), width, height);
 }
 
+// Standalone preview / legacy fallback only. A CMS source replaces this list,
+// even when that source is empty; never mix CMS names with local filenames.
 const serviceFiles = [
   "01_IP White.svg",
   "02_Regulatory White.svg",
@@ -393,6 +396,70 @@ const ringRadius = 6;
 
 function serviceName(filename) {
   return filename.replace(/\.[^.]+$/, "").replace(/^\d+[\s_-]*/, "").replace(/\s+(?:white|black|colou?r)$/i, "").trim();
+}
+
+function inlineSvgSource(svg) {
+  const viewBox = svg.viewBox.baseVal;
+  const width = viewBox.width || parseFloat(svg.getAttribute("width"));
+  const height = viewBox.height || parseFloat(svg.getAttribute("height"));
+  if (!(width > 0 && height > 0 && Number.isFinite(width / height))) {
+    throw new Error("SVG needs a valid viewBox or numeric width and height.");
+  }
+  const clone = svg.cloneNode(true);
+  clone.setAttribute("xmlns", "http://www.w3.org/2000/svg");
+  if (!viewBox.width || !viewBox.height) clone.setAttribute("viewBox", `0 0 ${width} ${height}`);
+  // The CMS thumbnail can be 30×20, but the curved icon needs a sharp texture.
+  const scale = 768 / Math.max(width, height);
+  clone.setAttribute("width", String(Math.max(1, Math.round(width * scale))));
+  clone.setAttribute("height", String(Math.max(1, Math.round(height * scale))));
+  // currentColor has no page inheritance in an SVG image texture. Use a white
+  // mask so the existing cream Three.js material supplies the highlight color.
+  // Serialize a clone: leave the CMS's original SVG and its styling untouched.
+  const markup = new XMLSerializer().serializeToString(clone).replace(/currentColor/gi, "#ffffff");
+  const url = URL.createObjectURL(new Blob([markup], { type: "image/svg+xml" }));
+  return { url, aspect: width / height, release: () => URL.revokeObjectURL(url) };
+}
+
+function getServiceSources() {
+  if (!cmsSource) {
+    return serviceFiles.map(filename => {
+      const name = serviceName(filename);
+      return { id: name, name, url: new URL(`Iconography/${filename}`, assetBaseUrl).href, label: serviceLabels.get(name) };
+    });
+  }
+
+  const sources = [];
+  const seen = new Set();
+  // Webflow sorts this Collection List by its existing Order field. Read its
+  // rendered order; CMS names/slugs do not depend on legacy SVG filenames.
+  for (const entry of cmsSource.querySelectorAll("[data-service-item]")) {
+    const id = entry.dataset.serviceItem.trim();
+    const name = entry.querySelector("[data-service-name]")?.textContent.trim();
+    const svg = entry.querySelector("[data-service-icon] svg, svg[data-service-icon]");
+    if (!id || !name || !svg || seen.has(id)) {
+      console.warn(`Skipping CMS service ${id || "(no slug)"}: needs a unique slug, Service Name, and rendered inline SVG.`);
+      continue;
+    }
+    try {
+      const source = inlineSvgSource(svg);
+      const label = entry.querySelector("[data-service-label]") || serviceLabels.get(id);
+      if (label && labelLayer) {
+        // Move the actual Webflow component, preserving its contents. A separate
+        // overlay avoids Collection List layout wrappers offsetting projection.
+        label.dataset.serviceLabel = id;
+        label.style.opacity = "0";
+        label.style.visibility = "hidden";
+        labelLayer.appendChild(label);
+        serviceLabels.set(id, label);
+      }
+      seen.add(id);
+      sources.push({ ...source, id, name, label: labelLayer ? label : null });
+    } catch (error) {
+      console.warn(`Skipping CMS service ${id}:`, error);
+    }
+  }
+  if (!sources.length) console.warn("The CMS service source has no usable services. Publish the Collection List with rendered SVG embeds.");
+  return sources;
 }
 
 function hideServiceLabels() {
@@ -440,25 +507,30 @@ function updateIconCurve(item, width, height, radius) {
   item.curveRadius = radius;
 }
 
-function createServiceRing() {
+async function createServiceRing() {
   const textureLoader = new THREE.TextureLoader();
-  for (const [index, filename] of serviceFiles.entries()) {
-    const name = serviceName(filename);
-    const texture = textureLoader.load(new URL(`Iconography/${filename}`, assetBaseUrl).href,
-      (loaded) => {
-        item.aspect = loaded.image.width / loaded.image.height;
-      }, undefined,
-      (error) => console.error(`Could not load service icon: ${filename}`, error),
-    );
+  const loaded = await Promise.all(getServiceSources().map(async source => {
+    try {
+      const texture = await textureLoader.loadAsync(source.url);
+      return { ...source, texture, aspect: source.aspect || texture.image.width / texture.image.height };
+    } catch (error) {
+      console.warn(`Could not load service icon: ${source.name}. Skipping this service.`, error);
+      return null;
+    } finally {
+      source.release?.();
+    }
+  }));
+  const services = loaded.filter(Boolean);
+  for (const [index, source] of services.entries()) {
+    const { id, name, texture, label, aspect } = source;
     texture.colorSpace = THREE.SRGBColorSpace;
     const material = new THREE.MeshBasicMaterial({ map: texture, color: 0xfff5bb, transparent: true, opacity: 0, alphaTest: 0.01, side: THREE.DoubleSide, depthWrite: false, toneMapped: false });
     const icon = new THREE.Mesh(new THREE.PlaneGeometry(1, 1, 32, 1), material);
     icon.name = name;
     serviceRing.add(icon);
 
-    const label = serviceLabels.get(name);
-    if (labelLayer && !label) console.warn(`Missing [data-service-label="${name}"] in the label overlay.`);
-    const item = { icon, label, aspect: 1.5, angle: index * Math.PI * 2 / serviceFiles.length };
+    if (labelLayer && !label) console.warn(`Missing label for service "${name}" (${id}).`);
+    const item = { id, icon, label, aspect, angle: index * Math.PI * 2 / services.length };
     serviceItems.push(item);
   }
 }
@@ -581,7 +653,7 @@ loader.load(
         servicesBeamDirection.clone().applyQuaternion(beamReferenceOrientation.clone().invert()),
       );
       orb.getWorldPosition(orbWorldPosition);
-      createServiceRing();
+      createServiceRing().catch(error => console.error("Could not create the service ring:", error));
     }
 
 

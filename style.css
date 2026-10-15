@@ -43,6 +43,11 @@ body {
   z-index: 1;
 }
 
+/* The CMS list supplies data; its actual labels are moved into the overlay. */
+#lighthouse-scene [data-services-cms] {
+  display: none;
+}
+
 [data-service-labels] [data-service-label] {
   position: absolute;
   top: 0;

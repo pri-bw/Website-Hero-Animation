@@ -80,7 +80,7 @@ The focus is 50° from +X toward the front within this plane. The beam's world
 direction is `X * cos(focusAngle) + Front * sin(focusAngle)`. This puts the
 highlight farther toward the viewer while retaining a rightward component.
 
-Nine icons have equal angular spacing. Radius is 6 desktop / 2.6 mobile, with a
+All successfully loaded service icons have equal angular spacing, independent of count. Radius is 6 desktop / 2.6 mobile, with a
 45-second full orbit at full reveal. They fade in during the second half of the
 camera transition. Focus brightens and enlarges the nearest icon smoothly.
 
@@ -90,13 +90,15 @@ ring-up, and outward radial axes so its curvature follows the pitched plane.
 Preserve transparent SVG backgrounds and outward-facing geometry.
 
 Labels are HTML elements owned by Webflow, not Three.js sprites or canvas text.
-The scene has a direct-child `[data-service-labels]` overlay containing unique
-`[data-service-label="IP"]` positioning wrappers. Values match cleaned filenames
-(extension, number prefix, and White/Black/Color/Colour suffix removed).
-The wrapper may contain a reusable Webflow component; keep identifiers outside
-the shared component so each service is independently mapped. Never overwrite
-its contents, font, or responsive styling. Missing mappings warn once and skip
-that label without breaking the scene; do not create fallback labels.
+The scene has a direct-child `[data-service-labels]` overlay. In CMS mode, the
+source list provides each label wrapper and the script moves that existing node
+into the overlay, sets `data-service-label` to the stable CMS slug, and preserves
+its text/component contents. This avoids Collection List positioning ancestors.
+Style labels by their own classes, not Collection Item ancestry.
+In local fallback mode, static overlay identifiers still match cleaned filenames
+(extension, numeric prefix, and White/Black/Color/Colour suffix removed).
+Never overwrite label copy or typography. Missing mappings warn and skip that
+label without breaking a valid icon; do not create fallback labels.
 
 JavaScript owns only wrapper transform, opacity, and visibility. Update camera
 world matrices before projecting the below-icon anchor to CSS pixels. The overlay
@@ -116,14 +118,40 @@ the fade must reach zero before the next name appears, including at the wrap sea
 `data-asset-base` on `#lighthouse-scene` overrides the asset directory. It must
 be an absolute published URL with a trailing slash for inline Webflow modules.
 Without it, assets resolve relative to `main.js` for the local/external-module
-preview. Keep asset loading shared between the GLB and SVGs.
+preview. The asset base serves the GLB and local fallback SVGs, not inline CMS icons.
 
 Use Three.js and its addons at the same pinned version (currently 0.179.1).
 Place the import map before the module. Paste the complete `main.js` into one
 Webflow `<script type="module">` embed; never load a second copy elsewhere.
-The model and all filenames in `serviceFiles` must exist in the published asset
-revision. The current icon directory was supplied by the user; do not assume
-untracked local assets are already on GitHub.
+The model must exist in the published asset revision. `serviceFiles` and
+`Iconography/` are used only when there is no CMS source. Do not rename local
+artwork to guess a mapping to renamed CMS services.
+
+## CMS service contract
+
+A `[data-services-cms]` source inside the scene selects CMS mode, even if empty.
+Each `[data-service-item]` value is bound to Slug; `[data-service-name]` text is
+bound to Service Name. `[data-service-icon]` contains a real inline SVG rendered
+from the existing Service Icon rich-text embed. Each item may contain one
+`[data-service-label]` wrapper with its label component. Webflow sorts the list
+by the existing Order field ascending; preserve rendered DOM order in JS.
+
+Read the initially published list once. Do not add a browser CMS API token,
+live polling, or pagination fetching. Disable load-more/pagination in the hero
+source list. Hide the source list with CSS after styling; move its labels into
+the overlay, leaving the original SVG markup untouched.
+
+`inlineSvgSource()` clones the SVG, uses its viewBox/dimensions for aspect ratio,
+normalizes currentColor to white for the cream material tint, and raises raster
+resolution to 768px on the longest side. Load the SVG through a temporary blob
+URL; revoke it on both success and failure. Preserve transparent regions and
+curved outward geometry. Use self-contained SVG styling.
+
+Load icons asynchronously, preserve source order, skip invalid/duplicate-slug or
+failed items with warnings, then space successful items evenly. An empty CMS
+source must not fall back to unrelated local services. Names and slugs come
+from the CMS, not legacy filenames (e.g. Clinical and Translation are valid).
+Keep the local preview/fallback working without a Webflow connection.
 
 ## Validation
 
@@ -131,7 +159,7 @@ Run `node --input-type=module --check < main.js` and `git diff --check`.
 For animation changes, preview desktop and phone sizes in a browser, inspect
 console/network failures, hover enter/leave, touch scrolling, reverse scroll,
 and viewport resizing. Verify the final beam stays still and only one beam is
-visible; all nine labels should pass through focus over a full orbit.
+visible; all loaded labels should pass through focus over a full orbit.
 
 For geometry changes, check equal spacing, outward mesh normals, curved surface
 radius, front/back ring pitch, and alignment of the final beam and focus point.
@@ -154,3 +182,8 @@ as passed.
   wrappers so Webflow can own copy, typography, and reusable components. Keep
   the existing angular fade and curved icon meshes. Add explicit label mapping,
   hide-on-reverse/clip handling, local preview markup, and Webflow setup notes.
+- **2026-10-15 (CMS icons):** Support the existing Services collection's inline
+  SVG embeds, names, slugs, and rendered Order sort. Normalize currentColor only
+  in texture copies and supersample small SVGs. Move actual CMS label wrappers
+  into the overlay. Use dynamic icon counts with explicit empty/error behavior;
+  retain the filesystem list only when the CMS marker is absent.

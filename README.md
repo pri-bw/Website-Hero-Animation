@@ -23,8 +23,8 @@ beam and gently dims the opposing beam.
 The opposing beam fades away, leaving a fixed light aimed toward the viewer’s
 front-right side. The camera transition finishes at 80% of the scroll track.
 
-**The services view** — Nine equally spaced icons orbit the lighthouse on a
-slightly pitched ring: the front rises and the back drops. Each SVG wraps onto
+**The services view** — Service icons from the Webflow CMS orbit the lighthouse
+at equal spacing on a slightly pitched ring: the front rises and the back drops. Each SVG wraps onto
 a curved surface and faces outward from the tower. As an icon crosses the beam’s
 focus, it brightens and its name fades in below it, then fades out as it moves on.
 Labels are ordinary HTML elements or Webflow component instances; Webflow owns
@@ -39,7 +39,7 @@ scene or browser tab is hidden.
 - **Three.js 0.179.1** for the WebGL scene, camera, lighting, and animation.
 - **GLTFLoader** for the lighthouse model.
 - **Custom shaders** for the visible beams.
-- **SVG textures on curved meshes** for the service icons.
+- **Inline CMS SVGs on curved meshes** for the service icons, with `currentColor` normalization and crisp texture sizing.
 - **HTML, CSS, and native JavaScript modules** for the local preview and Webflow integration.
 
 There is no application framework, bundler, or installation step for the preview.
@@ -53,7 +53,7 @@ Three.js is loaded from a pinned CDN URL.
 | [`style.css`](style.css) | Local hero layout and sticky scene styling |
 | [`index.html`](index.html) | Standalone development preview and HTML service labels |
 | [`models/`](models/) | Lighthouse GLB asset |
-| [`Iconography/`](Iconography/) | Nine service SVGs, with filenames used to derive display names |
+| [`Iconography/`](Iconography/) | SVG assets for the standalone preview and legacy fallback |
 | [`WEBFLOW.md`](WEBFLOW.md) | Deployment guide for JavaScript inside a Webflow Code Embed |
 | [`AGENTS.md`](AGENTS.md) | Maintainer instructions, coordinate conventions, and decision record |
 
@@ -74,9 +74,11 @@ and both portrait and landscape layouts when reviewing a change.
 ## Use on the Faros website
 
 The preferred integration keeps the JavaScript **inside a Webflow Code Embed**.
-The lighthouse model and service icons are versioned in GitHub and served through
-jsDelivr. A `data-asset-base` attribute on the scene selects the published asset
-version without changing the JavaScript.
+The lighthouse model is versioned in GitHub and served through jsDelivr. A
+`data-asset-base` attribute selects its published asset revision. The existing
+Webflow **Services** collection supplies Service Name, Slug, inline Service Icon,
+and Order through a rendered Collection List—no API token is needed. Publish CMS
+edits to update the ring on the next page load without editing the JavaScript.
 
 Follow **[the Webflow integration guide](WEBFLOW.md)** for the element structure,
 CSS, import map, embed setup, and release checks.
@@ -84,8 +86,9 @@ CSS, import map, embed setup, and release checks.
 ## Maintenance and releases
 
 `main.js` is the source of truth for interaction behavior. Keep the deployed
-Webflow embed in sync with the reviewed source, and publish the model and all
-referenced SVGs together. Pin the asset base to a commit or release tag for a
+Webflow embed in sync with the reviewed source, and publish the model revision
+used by the scene. CMS icons are published through Webflow; local fallback SVGs
+stay in the repository. Pin the asset base to a commit or release tag for a
 reproducible deployment.
 
 The `Alternative-Services` branch contains the service-ring exploration. Local

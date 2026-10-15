@@ -1,155 +1,150 @@
 # Add the Faros lighthouse hero to Webflow
 
-This guide keeps the JavaScript **inside a Webflow Code Embed** and serves the
-GLB and SVG assets from this GitHub repository through jsDelivr. `main.js` remains
-the source of truth: copy it into the embed whenever you deploy a code change.
+The JavaScript runs inside a **Webflow Code Embed**. The lighthouse model is
+hosted in GitHub and delivered through jsDelivr. Service icons and label text
+come from the existing **Services CMS collection**—no CMS API token is needed.
 
-## 1. Publish the assets to GitHub
+`main.js` is the source of truth. Copy its complete contents into the embed when
+releasing code changes. Publishing CMS edits updates the icons/names/order on
+the next page load without changing JavaScript.
 
-Publish these paths together, preserving case and spaces:
+## 1. Publish the lighthouse model
+
+The repository is `pri-bw/Website-Hero-Animation`. Ensure this file exists in the
+published revision:
 
 ```text
 models/Lighthouse_Model.glb
-Iconography/01_IP White.svg
-Iconography/02_Regulatory White.svg
-Iconography/03_Incorporation White.svg
-Iconography/04_Scientifics White.svg
-Iconography/05_Product Fit White.svg
-Iconography/06_Marketing White.svg
-Iconography/07_Commercialisation White.svg
-Iconography/08_Insurance White.svg
-Iconography/09_Funding White.svg
 ```
 
-The repository is `pri-bw/Website-Hero-Animation`. Assets must be available in the
-revision you use. Local, untracked files are not available to Webflow until they
-are committed and pushed. GitHub Pages is not required for this delivery method.
-
-For testing this branch, the asset base is:
+For branch testing, the asset base is:
 
 ```text
 https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@Alternative-Services/
 ```
 
-For production, replace `Alternative-Services` with the full commit SHA or an
-actual published release tag containing the assets. Keep the trailing slash.
-A new version URL also avoids relying on an old cached branch response.
+Use a full commit SHA or an actual published release tag instead of the branch
+for production. Keep the trailing slash. GitHub Pages is not required.
 
-For example, append these paths to the base to check the actual downloads:
+In CMS mode, you **do not need to upload the service SVGs to GitHub**. The
+`Iconography/` files remain available for the standalone preview/legacy fallback.
 
-```text
-models/Lighthouse_Model.glb
-Iconography/01_IP%20White.svg
-```
+## 2. Build the scene and CMS source list
 
-The script constructs and encodes asset URLs automatically; do not rename the
-files merely to remove their spaces.
-
-## 2. Create the Webflow structure
-
-In the Navigator, create:
+Use this hierarchy in the Webflow Navigator:
 
 ```text
 Hero Section
-└── Lighthouse Scroll Track     class: lighthouse-scroll-track
-    └── Lighthouse Scene        ID: lighthouse-scene
-        ├── Service Labels      attribute: data-service-labels="true"
-        │   ├── Label wrapper   attribute: data-service-label="IP"
-        │   │   └── Label text or component instance
-        │   ├── Label wrapper   attribute: data-service-label="Regulatory"
-        │   │   └── Label text or component instance
-        │   └── …one wrapper for each of the nine services
-        └── Code Embed          contains the module script from step 4
+└── Lighthouse Scroll Track         class: lighthouse-scroll-track
+    └── Lighthouse Scene            ID: lighthouse-scene
+        ├── Service Labels          div, data-service-labels="true", initially empty
+        ├── Services Collection List Wrapper   data-services-cms="true"
+        │   └── Collection List     source: Services, sort: Order ascending
+        │       └── Collection Item data-service-item bound to Slug
+        │           ├── Rich Text   bound to Service Icon, data-service-icon="true"
+        │           └── Label wrapper         data-service-label="true"
+        │               └── Text/component    bound to Service Name,
+        │                                     data-service-name="true"
+        └── Code Embed              full module script from step 4
 ```
 
-**Lighthouse Scene must be a direct child of Lighthouse Scroll Track.**
-The JavaScript uses `container.parentElement` to calculate scroll duration.
-Do not insert a wrapper between those two elements. The Code Embed belongs
-inside the scene; the script appends its canvas to that scene automatically.
-Do not add a second element with the `lighthouse-scene` ID inside the embed.
+The scene must be a **direct child** of the scroll track; scroll duration uses
+that direct parent. Service Labels must be a **direct child** of the scene so
+its positioning coordinates match the canvas. Do not create a second scene ID
+inside the Code Embed.
 
-On **Lighthouse Scene**, add this custom attribute in Element settings:
+On Lighthouse Scene, add:
 
-| Attribute | Value |
+| Custom attribute | Value |
 | --- | --- |
 | `data-asset-base` | `https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@Alternative-Services/` |
 
-Use your published production revision in that value when deploying. This
-attribute is essential for an inline embed: otherwise `import.meta.url` resolves
-relative assets against the Webflow page instead of the GitHub asset directory.
-There is no need to edit the JavaScript's `modelUrl` or `assetBaseUrl` lines.
+Use your chosen published revision in the URL. This is essential for an inline
+module: without the override, relative assets would point at the Webflow domain.
+The same `main.js` works without modification in the embed.
 
-Keep the Hero Section and scroll track overflow visible. Put headings and buttons
-in Webflow as an overlay above the canvas; they should not change the scroll
-track's measured height. The supplied interaction contains no website copy or
-service-navigation links. If decorative, the scene can have `aria-hidden="true"`;
-keep actual service names and navigation accessible in the Webflow content.
+### Connect your existing Services fields
 
-### Set up the Webflow labels
-
-The service names are now **Webflow-owned HTML**, not Three.js text. Create a
-Service Labels div **directly inside Lighthouse Scene**, beside the Code Embed,
-and give it the custom attribute `data-service-labels` with value `true`.
-
-Inside that layer, create one positioning div per service. Put a Text Block,
-Heading, or reusable label component instance inside each positioning div. The
-outer div gets `data-service-label`; the component/text inside owns the visible
-copy, font, color, size, spacing, and responsive styles.
-
-| Outer wrapper's `data-service-label` value | Suggested visible text |
+| Existing CMS field | Binding |
 | --- | --- |
-| `IP` | IP |
-| `Regulatory` | Regulatory |
-| `Incorporation` | Incorporation |
-| `Scientifics` | Scientifics |
-| `Product Fit` | Product Fit |
-| `Marketing` | Marketing |
-| `Commercialisation` | Commercialisation |
-| `Insurance` | Insurance |
-| `Funding` | Funding |
+| **Slug** | Collection Item's `data-service-item` attribute value |
+| **Service Name** | Visible label text; mark that text/component wrapper with `data-service-name="true"` |
+| **Service Icon** | Rich Text element marked `data-service-icon="true"`, containing the rendered inline SVG embed |
+| **Order** | Collection List sort rule: ascending by Order |
 
-Identifiers are case-sensitive and must match the cleaned SVG filename. Use each
-identifier exactly once. Keep the attribute on the **outer positioning wrapper**,
-not also on its text child. The visible wording can be anything you prefer:
-`data-service-label="IP"` can display “Intellectual Property” without a JS change.
+For `data-service-item`, use the purple CMS binding control in the custom
+attribute's Value field and choose **Slug**. Other marker attributes use the
+literal value `true`. See Webflow's [dynamic custom attributes guide](https://help.webflow.com/hc/en-us/articles/33961389460115-Custom-attributes).
 
-For components, keep the per-service identifier on the ordinary div outside each
-instance. This allows all nine labels to share one component design without
-hard-coding a single service identifier into the shared component. Set each
-instance's visible text through your component's text configuration.
+Your Service Icon field appears to be Rich Text with an HTML embed. Bind a Rich
+Text element to that field; the published markup must contain a real `<svg>`.
+If you instead store raw SVG in a plain-text field, output it through a dynamic
+Code Embed inside the marked icon wrapper. Escaped text such as `&lt;svg…` is
+not a rendered SVG and will be skipped. Webflow documents [CMS code embeds](https://help.webflow.com/hc/en-us/articles/33961236623635-Custom-code-in-the-CMS)
+and [dynamic embed bindings](https://help.webflow.com/hc/en-us/articles/33961390851731-Use-dynamic-data-in-custom-code-embeds).
 
-The structural CSS below hides labels until they are focused and places the
-layer above the canvas. Style the **child text/component** in Webflow. Suggested
-starting typography is pale cream (`#fff5bb`), 24px desktop / 18px mobile, with
-centered text and no default paragraph/heading margins. You can change these
-styles without editing the script.
+Keep all desired Services items on this page. Disable pagination/load-more and
+set any display limit high enough to include them. The script reads the initial
+rendered list once, in its rendered order. Configure sorting by your numeric
+Order field in Webflow; use distinct order values for a predictable sequence.
+See [Collection List settings](https://help.webflow.com/hc/en-us/articles/33961294051347-Collection-list).
 
-Do not apply Webflow Interactions, CSS transitions, or layout transforms to the
-outer positioning wrappers: JavaScript owns their `transform`, `opacity`, and
-`visibility`. Keep the overlay at zero padding/border with no transform so its
-coordinates match the canvas. Put decorative typography effects on the child.
+### Inline SVG requirements
 
-The script projects the icon's below-icon anchor into the overlay's CSS pixels
-on each frame. Labels follow camera movement, resizing, and the orbit, with the
-same smooth focus fade as before. HTML labels do not shrink with 3D distance;
-Webflow controls their font size. They are an overlay, not depth-tested 3D text;
-the current front-facing focus keeps them on the visible side of the tower.
+Your existing SVG format works:
 
-Missing labels produce a console warning and are skipped; the 3D animation keeps
-running. The script does not invent replacement HTML or overwrite label copy.
-Create the label layer and wrappers before the module runs. Keep these moving
-labels decorative/noninteractive, with service links in the normal page content;
-do not add an `aria-live` region that announces each orbit.
+```html
+<svg width="30" height="20" viewBox="0 0 30 20"
+     fill="none" xmlns="http://www.w3.org/2000/svg">
+  <!-- Keep your existing path data here. -->
+  <path d="…" fill="currentColor" />
+</svg>
+```
 
-When editing in Designer, you can temporarily show the positioning wrappers to
-style their contents. Restore the hidden state before publishing; the script
-will control their visibility at runtime. For an existing installation, add this
-layer, the new CSS, and the new module together—updating only the script will
-remove the old Three.js text without supplying Webflow labels.
+Keep the complete original path data—the example's ellipsis is not a valid
+replacement. Use self-contained SVG paths/styles with a valid `viewBox` or
+numeric width and height. Include one service SVG in each marked icon wrapper.
+
+The script clones the SVG, converts `currentColor` to white in that copy, and
+creates a higher-resolution image texture (768 pixels on its longest side).
+This prevents a 30×20 CMS thumbnail from looking pixelated when enlarged.
+The cream Three.js material supplies the visible tint. Your original SVG,
+`fill="none"`, and the CMS field are not edited. External page CSS is not copied
+into the texture; keep required SVG styling inside the SVG.
+
+### Webflow-owned labels and components
+
+Build one label wrapper inside the Collection Item template. Its
+`data-service-label` value can simply be `true`: the script assigns the item's
+slug at runtime. Put the Text Block or component instance inside it and bind
+the visible text to Service Name. Mark the bound text (or a wrapper containing
+only that text) with `data-service-name="true"`.
+
+The script **moves the actual label wrapper** from each CMS item into the empty
+Service Labels overlay. It does not clone or replace the component contents.
+This prevents Collection List layout wrappers from offsetting the projected
+positions. Style components with their own classes; avoid selectors depending
+on `.w-dyn-item` ancestry, since that ancestry changes at runtime.
+
+Webflow controls typography, copy, color, and responsive styling. Suggested
+starting sizes are 24px desktop and 18px mobile with centered pale-cream text
+(`#fff5bb`). Remove default text margins. JS controls only the outer wrapper's
+`transform`, `opacity`, and `visibility`; do not add competing Webflow
+Interactions, CSS transitions, or transforms to that outer wrapper.
+
+The script projects the below-icon anchor into CSS pixels each frame. Labels
+remain HTML overlays rather than depth-tested 3D text. Keep the overlay free
+of padding/borders/transforms and keep these moving labels noninteractive.
+Place normal service navigation and accessible service copy elsewhere in the
+page; do not make the cycling labels an `aria-live` region.
+
+The CMS source list is hidden by the CSS below. Temporarily show it in Designer
+when editing the template, then restore the hidden state before publishing.
+Do not manually duplicate the nine old filename-based labels in CMS mode.
 
 ## 3. Add the import map and CSS to the page head
 
-In **Page settings → Custom code → Inside `<head>`**, paste:
+In **Page settings → Custom code → Inside `<head>`**, add:
 
 ```html
 <script type="importmap">
@@ -170,7 +165,6 @@ In **Page settings → Custom code → Inside `<head>`**, paste:
     overflow: visible;
     background: linear-gradient(to bottom, #010912, #031224);
   }
-
   #lighthouse-scene {
     position: sticky;
     top: 0;
@@ -183,128 +177,120 @@ In **Page settings → Custom code → Inside `<head>`**, paste:
     pointer-events: none;
     z-index: 0;
   }
-
   #lighthouse-scene canvas {
     display: block;
     width: 100%;
     max-width: 100%;
     height: 100%;
   }
-
-#lighthouse-scene > [data-service-labels] {
-  position: absolute;
-  inset: 0;
-  padding: 0;
-  border: 0;
-  overflow: hidden;
-  pointer-events: none;
-  z-index: 1;
-}
-
-[data-service-labels] [data-service-label] {
-  position: absolute;
-  top: 0;
-  left: 0;
-  width: max-content;
-  max-width: min(18rem, 80vw);
-  margin: 0;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  text-align: center;
-  will-change: transform, opacity;
-}
-
+  #lighthouse-scene > [data-service-labels] {
+    position: absolute;
+    inset: 0;
+    padding: 0;
+    border: 0;
+    overflow: hidden;
+    pointer-events: none;
+    z-index: 1;
+  }
+  #lighthouse-scene [data-services-cms] {
+    display: none;
+  }
+  [data-service-labels] [data-service-label] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: max-content;
+    max-width: min(18rem, 80vw);
+    margin: 0;
+    opacity: 0;
+    visibility: hidden;
+    pointer-events: none;
+    text-align: center;
+    will-change: transform, opacity;
+  }
 </style>
 ```
 
-If the page already has an import map, merge these entries into it instead of
-adding conflicting mappings. The import map must precede the module script.
-Keep core Three.js and addons on the same version.
-
-Use `100%` widths, rather than `100vw`, to avoid scrollbar-width overflow. The
-scene is one small-viewport height tall; the parent supplies the extra scroll
-travel. A taller track slows the transition over a longer scroll distance.
-
-For overlay buttons inside a parent with `pointer-events: none`, explicitly set
-`pointer-events: auto` on the interactive overlay and give it a higher z-index.
-The canvas itself should continue to ignore clicks.
+Merge with any existing import map; it must precede the module. Keep Three.js and
+addons at the same version. Preserve overflow visible on the scroll track and
+its ancestors. Use `100%`, not `100vw`, for widths. Add headings and buttons as
+Webflow overlays above the canvas without changing the scroll track's height.
+If an interactive overlay inherits `pointer-events: none`, set it to `auto`.
 
 ## 4. Paste the JavaScript into the Code Embed
 
-Open the Code Embed inside Lighthouse Scene. Add these wrapper tags and paste
-**the complete contents of [`main.js`](main.js)** between them:
+In the Code Embed inside Lighthouse Scene:
 
 ```html
 <script type="module">
-  // Replace this comment with the entire contents of main.js,
-  // including the two import statements at the top.
+  // Replace this comment with the COMPLETE contents of main.js,
+  // including its two import statements.
 </script>
 ```
 
-The comment above is a placement instruction, not a working animation. Do not
-paste Markdown code fences into Webflow. Do not paste all of `index.html`:
-Webflow already supplies the page structure, and step 3 supplies the import map.
+The comment is a placement instruction, not a working script. Do not paste
+Markdown fences or all of `index.html`. Run exactly one module instance per page:
+remove the old footer/embed script or external `main.js` tag before installing
+this one. The source list and overlay must exist when the module runs.
 
-Remove any previous copy of the lighthouse script from page footer custom code,
-site custom code, or another embed. **Run exactly one instance per page.**
-There is no need for an external `<script src="…/main.js">` in this setup.
+The script fits Webflow's 50,000-character Code Embed limit; check again if it
+grows substantially. See [Code Embed documentation](https://help.webflow.com/hc/en-us/articles/33961332238611-Custom-code-embed).
 
-Webflow's Code Embed supports HTML/CSS/JavaScript and has a 50,000-character
-limit. Check the size if the script grows substantially. See Webflow's
-[Code Embed documentation](https://help.webflow.com/hc/en-us/articles/33961332238611-Custom-code-embed).
+## 5. Publish and verify
 
-## 5. Publish to staging and review
+Publish to staging to check the actual SVG embeds; Designer placeholders are
+not SVG data. Review [Webflow custom-code preview behavior](https://help.webflow.com/hc/en-us/articles/40748357886227-Supporting-external-resources-in-previews-of-custom-code).
 
-Publish to your Webflow staging domain before updating the live site. A script
-may appear as a placeholder while editing; review the actual published page.
-Webflow also documents [custom code preview behavior](https://help.webflow.com/hc/en-us/articles/40748357886227-Supporting-external-resources-in-previews-of-custom-code).
-
-Check these behaviors:
-
-- One canvas and nine label wrappers exist in `#lighthouse-scene`; no missing-label, module, WebGL, model,
-  or SVG errors appear in the console.
-- The GLB and all nine SVGs load from the intended published revision.
-- Before scroll, the camera looks slightly upward. Both beams rotate; side-on
-  rotation is faster. Hover steers the main beam and dims its opposite.
-- Scrolling moves the lighthouse left and gently closer. At the end there is
-  only one fixed beam, aimed at the front-right focus.
-- The ring lifts at the front and drops at the back. Icons face outward, and
-  each HTML label fades below its icon as it enters and leaves focus. Confirm
-  your Webflow text and fonts appear, and labels disappear when scrolling back.
-- Reverse scrolling restores the initial state. The scene pauses offscreen
-  and resumes when visible.
-- Phone touch scrolling works without capturing the beam. Inspect narrow and
-  landscape layouts, especially the focused icon and long service names.
-- Webflow headings and buttons remain positioned and clickable.
+- One canvas renders; the GLB loads from the correct GitHub revision.
+- Each published CMS service has a unique slug, name, and inline SVG. The ring
+  follows the Collection List order, with no `Iconography/` requests in CMS mode.
+- Names match the CMS (including Clinical, Translation, and Commercialization),
+  not the legacy repository filenames.
+- Hover dims the opposing beam; automatic rotation speeds up side-on.
+- Scroll settles to one fixed beam and the pitched, outward-facing icon ring.
+- Labels appear in the overlay with your Webflow styling and fade below the
+  focused icons. Reverse scroll hides them and restores the opening.
+- Check portrait/landscape sizes, long names, and clickable Webflow overlays.
 
 ## Updating later
 
-| Change | Webflow update |
+| Change | What to update |
 | --- | --- |
-| Animation logic or tuning in `main.js` | Replace the full module contents in the Code Embed and republish |
-| Label wording, typography, or component styling | Edit the label contents in Webflow and republish; keep the identifier unchanged |
-| Model or SVG changes | Publish the assets, change `data-asset-base` to the new revision, and republish |
-| Add/remove service icons | Publish assets, update `serviceFiles`, add/remove matching label wrappers, and replace the embed |
-| Scene or scroll-track layout | Update Webflow styles/head CSS and republish |
-| Three.js version | Update both import-map entries and retest the complete interaction |
+| Service name, SVG, or Order | Edit/publish Services CMS; reload the page. No JS change |
+| Add/remove a service | Publish CMS changes and ensure the Collection List includes it; spacing adjusts automatically |
+| Label design | Edit the label component/template styling in Webflow and publish |
+| Animation logic | Replace the complete module embed from `main.js` and publish |
+| Lighthouse model | Publish a new asset revision and update `data-asset-base` |
+| Three.js version | Update both import-map entries and test |
 
-Keep the reviewed source commit and deployed asset revision together in your
-release notes. A GitHub push does not replace JavaScript pasted into Webflow.
+The script does not live-sync CMS changes or load subsequent pagination pages.
+A GitHub push does not replace JavaScript pasted into Webflow.
+
+## Local preview and legacy fallback
+
+When **no** `[data-services-cms]` exists, `main.js` uses its local `serviceFiles`
+list and the static label wrappers in `index.html`. In this mode the model and
+`Iconography/` must be hosted together, and label identifiers use the cleaned
+filenames (e.g. `data-service-label="IP"`). This keeps the local preview working
+without a Webflow connection.
+
+If the CMS source exists but is empty/invalid, the ring stays empty and logs a
+warning—it does not silently display the unrelated local services. Invalid or
+failed icons are skipped and the remaining icons are spaced evenly. Missing
+labels warn and leave the valid icon visible. No CMS/API credentials are used.
 
 ## Troubleshooting
 
 | Symptom | Check |
 | --- | --- |
-| Icons show but labels do not | Direct-child `data-service-labels` layer, matching unique identifiers, required CSS, and missing-label console warnings |
-| Labels drift or flicker | Remove padding/transforms from the overlay and competing interactions/transitions from positioning wrappers |
-| Blank scene | Correct ID, nonzero scene height, import map before the module, console/network errors |
-| Model or icons requested from the Webflow domain | Missing/incorrect `data-asset-base`; use an absolute URL with trailing slash |
-| 404 for an icon | Filename case/spaces, exact `serviceFiles` entry, and whether the SVG exists in the published revision |
-| Sticky animation does not stick | Direct-parent structure and ancestor overflow/scrolling containers; scene must be shorter than its track |
-| Animation runs twice | Remove duplicate script embeds/external script tags; keep one scene ID |
-| Old asset still appears | Use a new immutable asset revision rather than assuming a branch URL refreshed |
-| Buttons stop responding | Put content above the canvas and enable pointer events on interactive overlay elements |
-
-For placement of page-level custom code, see Webflow's
-[head/body custom code guide](https://help.webflow.com/hc/en-us/articles/33961357265299-Custom-code-in-head-and-body-tags).
+| Blank scene | Correct scene ID, nonzero height, import map before module, console/network errors |
+| GLB requested from Webflow domain | Missing/incorrect absolute `data-asset-base` with trailing slash |
+| Local icons appear instead of CMS icons | `[data-services-cms]` marker must exist inside the scene |
+| Empty ring | Published Collection List, actual `<svg>` under `data-service-icon`, unique slug, and name marker |
+| Black/blurry icons | Use self-contained SVGs with `viewBox`; currentColor is normalized automatically; external CSS is not embedded |
+| Incorrect service order | Configure Collection List Order ascending; disable pagination and check equal sort values |
+| Missing labels | Empty direct-child label overlay plus a label wrapper/name marker in each item; inspect warnings |
+| Labels lose styling | Style the component's own classes rather than Collection Item ancestry |
+| Labels drift/flicker | Remove overlay padding/transforms and competing wrapper interactions/transitions |
+| Sticky fails | Check direct parent, ancestor overflow, and track height greater than scene height |
+| Duplicate animation | Keep one scene ID and one script instance |
