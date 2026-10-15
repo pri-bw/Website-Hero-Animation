@@ -32,3 +32,39 @@ body {
   height: 100%;
   display: block;
 }
+
+#lighthouse-scene > [data-service-labels] {
+  position: absolute;
+  inset: 0;
+  padding: 0;
+  border: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 1;
+}
+
+[data-service-labels] [data-service-label] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: max-content;
+  max-width: min(18rem, 80vw);
+  margin: 0;
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  text-align: center;
+  will-change: transform, opacity;
+}
+
+/* Local preview styling; Webflow styles the contents of each label wrapper. */
+.service-label-text {
+  color: #fff5bb;
+  font: 24px/1.25 Georgia, serif;
+}
+
+@media (max-width: 767px) {
+  .service-label-text {
+    font-size: 18px;
+  }
+}

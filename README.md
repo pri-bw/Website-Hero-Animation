@@ -1,391 +1,101 @@
-# Lighthouse Hero Animation for Faros Medworks 
+# Faros · Website Interactions
 
-This project renders an interactive Three.js lighthouse inside a sticky scrollable section.
-During that scroll, the camera moves and zooms, the top spotlight becomes brighter, and the lighthouse beam becomes narrower.
-The beam follows the pointer while it is over the scene and rotates automatically when the pointer is outside it.
+**Built for Faros by Blurry Works.**
 
-On screens up to 767px wide (and touch devices up to 500px tall in landscape),
-the lighthouse starts horizontally centered with only its upper half visible
-above the bottom edge. The camera starts below the model midpoint, looking up
-by 4 degrees. Scrolling moves it closer for approximately 25% growth while
-raising and leveling the camera for a head-on view. The tower stays centered
-and rises slightly in the frame without rotating. Framing uses the model bounds
-and reserves horizontal space for the final view. This move finishes at 80% scroll.
-Touch gestures scroll the page without steering the beam. Desktop camera motion
-and mouse interaction remain unchanged.
+This repository maintains the interactive assets and related files used on the
+Faros main website. It brings together the lighthouse model, service iconography,
+animation code, and integration guidance so the website experience can be
+reviewed, refined, and released from one place.
 
-## Files used by the Webflow page
+The current hero interaction uses a lighthouse to introduce Faros’ interconnected
+commercialization services: a pair of sweeping beams becomes a focused light,
+while service icons orbit the tower.
 
-- `main.js` creates and animates the Three.js scene.
-- `models/Lighthouse_Model.glb` is the Blender model.
-- `index.html` is only the local reference page. Do not paste the whole file
-  into Webflow.
-- `style.css` contains the local version of the Webflow layout styles.
+## The experience
 
-## Step-by-step Webflow setup
+**Before scrolling** — The lighthouse sits to the right, seen from a slightly
+lower camera looking upward. Two opposing light beams rotate automatically.
+Their rotation accelerates as they face sideways and eases back to normal as
+either beam faces the camera. Moving the pointer over the scene steers the main
+beam and gently dims the opposing beam.
 
-### 1. Push the latest files to GitHub
+**On scroll** — The camera approaches and moves the lighthouse to the left.
+The opposing beam fades away, leaving a fixed light aimed toward the viewer’s
+front-right side. The camera transition finishes at 80% of the scroll track.
 
-The public repository is:
+**The services view** — Nine equally spaced icons orbit the lighthouse on a
+slightly pitched ring: the front rises and the back drops. Each SVG wraps onto
+a curved surface and faces outward from the tower. As an icon crosses the beam’s
+focus, it brightens and its name fades in below it, then fades out as it moves on.
+Labels are ordinary HTML elements or Webflow component instances; Webflow owns
+their copy and typography while the animation controls positioning and fades.
 
-```text
-https://github.com/pri-bw/Website-Hero-Animation
+On phones, the composition uses a separate camera path and smaller orbit. Touch
+gestures scroll the page without steering the beam. Rendering pauses when the
+scene or browser tab is hidden.
+
+## Built with
+
+- **Three.js 0.179.1** for the WebGL scene, camera, lighting, and animation.
+- **GLTFLoader** for the lighthouse model.
+- **Custom shaders** for the visible beams.
+- **SVG textures on curved meshes** for the service icons.
+- **HTML, CSS, and native JavaScript modules** for the local preview and Webflow integration.
+
+There is no application framework, bundler, or installation step for the preview.
+Three.js is loaded from a pinned CDN URL.
+
+## Repository guide
+
+| File or directory | Purpose |
+| --- | --- |
+| [`main.js`](main.js) | Scene setup, camera paths, beam interaction, service orbit, and labels |
+| [`style.css`](style.css) | Local hero layout and sticky scene styling |
+| [`index.html`](index.html) | Standalone development preview and HTML service labels |
+| [`models/`](models/) | Lighthouse GLB asset |
+| [`Iconography/`](Iconography/) | Nine service SVGs, with filenames used to derive display names |
+| [`WEBFLOW.md`](WEBFLOW.md) | Deployment guide for JavaScript inside a Webflow Code Embed |
+| [`AGENTS.md`](AGENTS.md) | Maintainer instructions, coordinate conventions, and decision record |
+
+## Preview locally
+
+From the repository directory, run:
+
+```sh
+python3 -m http.server 8000
 ```
 
-Before updating Webflow, commit and push the latest `main.js` and model:
+Open **http://localhost:8000**. Use a web server rather than opening `index.html`
+directly: the preview loads modules, a GLB, and SVG assets over HTTP.
 
-```text
-main.js
-models/Lighthouse_Model.glb
-```
+Check the opening, hover interaction, full scroll transition, reverse scroll,
+and both portrait and landscape layouts when reviewing a change.
 
-GitHub Pages does not need to be enabled. jsDelivr reads files directly from
-the public GitHub repository.
+## Use on the Faros website
 
-### 2. Create the Webflow element structure
+The preferred integration keeps the JavaScript **inside a Webflow Code Embed**.
+The lighthouse model and service icons are versioned in GitHub and served through
+jsDelivr. A `data-asset-base` attribute on the scene selects the published asset
+version without changing the JavaScript.
 
-Create this hierarchy in the Webflow Navigator:
+Follow **[the Webflow integration guide](WEBFLOW.md)** for the element structure,
+CSS, import map, embed setup, and release checks.
 
-```text
-Hero Section
-  Lighthouse Scroll Track (200vh)
-    Lighthouse Scene
-```
+## Maintenance and releases
 
-The important requirement is that **Lighthouse Scroll Track is the direct
-parent of Lighthouse Scene**. The JavaScript uses:
+`main.js` is the source of truth for interaction behavior. Keep the deployed
+Webflow embed in sync with the reviewed source, and publish the model and all
+referenced SVGs together. Pin the asset base to a commit or release tag for a
+reproducible deployment.
 
-```js
-const scrollSection = container.parentElement;
-```
+The `Alternative-Services` branch contains the service-ring exploration. Local
+changes or commits do not update the live Faros website automatically: the
+assets must be pushed, and the Webflow embed must be updated and published.
 
-That direct parent therefore defines the complete scroll duration.
+When behavior changes, update the decisions in [`AGENTS.md`](AGENTS.md) and any
+relevant integration guidance. Keep website copy, links, and buttons in Webflow;
+this repository supplies the visual interaction beneath them.
 
-Give the elements these settings:
+---
 
-#### Hero Section
-
-- Position: `relative`
-- Width: `100%`
-- Background: linear gradient from `#010912` to `#031224`
-- Overflow: `visible`
-
-#### Lighthouse Scroll Track
-
-- Class: `lighthouse-scene-wrapper` (recommended)
-- Position: `relative`
-- Width: `100%`
-- Height: `200vh`
-- Overflow: `visible`
-
-#### Lighthouse Scene
-
-- ID: `lighthouse-scene` (required)
-- Position: `sticky`
-- Top: `0`
-- Width: `100%`
-- Height: `100vh`
-- Overflow: `hidden`
-- Z-index: `0`
-
-The ID must be exact because `main.js` selects it with:
-
-```js
-document.querySelector("#lighthouse-scene");
-```
-
-Place Webflow headings, buttons, and other hero content above the scene using a
-higher z-index, such as `1`. The canvas does not capture clicks, so links remain
-interactive.
-
-### 3. Add the Webflow CSS
-
-The layout can be configured in Webflow's Style panel. Alternatively, paste the
-following into **Page settings > Custom code > Inside `<head>` tag**:
-
-```html
-<style>
-  body {
-    max-width: 100%;
-    overflow-x: clip;
-  }
-
-  .lighthouse-scene-wrapper {
-    position: relative;
-    width: 100%;
-    max-width: 100%;
-    height: 200vh;
-  }
-
-  #lighthouse-scene {
-    position: sticky;
-    top: 0;
-    width: 100%;
-    max-width: 100%;
-    height: 100svh;
-    box-sizing: border-box;
-    contain: layout paint;
-    overflow: hidden;
-    pointer-events: none;
-  }
-
-  #lighthouse-scene canvas {
-    display: block;
-    width: 100%;
-    max-width: 100%;
-    height: 100%;
-  }
-</style>
-```
-
-Use `100%`, not `100vw`, for the section and wrapper widths. `100vw` includes
-the browser scrollbar and can create horizontal overflow.
-
-### 4. Add the Three.js import map
-
-In **Page settings > Custom code > Inside `<head>` tag**, above any module
-script, add:
-
-```html
-<script type="importmap">
-  {
-    "imports": {
-      "three": "https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js",
-      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.179.1/examples/jsm/"
-    }
-  }
-</script>
-```
-
-The double quotes are required because an import map contains JSON. Do not add
-trailing commas or convert the quotes to curly smart quotes.
-
-### 5. Understand how the GLB is loaded
-
-`main.js` loads the Blender model with `GLTFLoader`:
-
-```js
-const loader = new GLTFLoader();
-loader.load(modelUrl, ...);
-```
-
-The `modelUrl` points to jsDelivr:
-
-```js
-const modelUrl =
-  "https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@main/models/Lighthouse_Model.glb";
-```
-
-The URL is composed as follows:
-
-```text
-https://cdn.jsdelivr.net/gh/
-  pri-bw/                         GitHub username
-  Website-Hero-Animation         repository name
-  @main/                          branch
-  models/Lighthouse_Model.glb    exact repository path
-```
-
-The repository must be public, the file must be committed, and every character
-in the path is case-sensitive. Opening the complete jsDelivr URL in a browser
-should download or display the GLB response.
-
-For production, use a Git tag instead of `@main`:
-
-```js
-const modelUrl =
-  "https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@v1.0.0/models/Lighthouse_Model.glb";
-```
-
-Using a tag prevents a future commit from unexpectedly changing the published
-model and avoids confusion from branch-file caching.
-
-### 6. Add `main.js` before the closing body tag
-
-Use one of the following methods in **Page settings > Custom code > Before
-`</body>` tag**.
-
-#### Option A: paste the JavaScript
-
-```html
-<script type="module">
-  // Paste the complete contents of main.js here.
-</script>
-```
-
-Do not paste only the two import lines. The complete file must be inside the
-same `type="module"` script.
-
-#### Option B: load `main.js` through jsDelivr
-
-Push the latest file to GitHub, then add:
-
-```html
-<script
-  type="module"
-  src="https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@main/main.js"
-></script>
-```
-
-For production, use the same version tag for the JavaScript and GLB:
-
-```html
-<script
-  type="module"
-  src="https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@v1.0.0/main.js"
-></script>
-```
-
-If the tagged `main.js` is used, its internal `modelUrl` should use the same
-tag.
-
-### 7. Publish and test
-
-The script may not run in the normal Webflow Designer canvas. Test it in
-Webflow Preview and on the published page.
-
-Open browser developer tools and verify:
-
-1. The Console contains no import-map, module, WebGL, or model-loading errors.
-2. `three.module.js`, `GLTFLoader.js`, `main.js`, and
-   `Lighthouse_Model.glb` return HTTP status `200` in the Network panel.
-3. Only one canvas exists inside `#lighthouse-scene`.
-4. The scene remains sticky for the full 200vh scroll track.
-5. Camera movement finishes at 80% scroll.
-6. The beam follows the pointer at both the initial and final camera views.
-7. Webflow buttons above the canvas remain clickable.
-
-## Adjusting the interactions
-
-The primary controls are grouped near the top of `main.js`.
-
-### Camera movement
-
-```js
-const cameraStartPosition = new THREE.Vector3(-6, -4, 32);
-const cameraEndPosition = new THREE.Vector3(4, 2.4, 18);
-const cameraStartTilt = THREE.MathUtils.degToRad(18);
-const cameraEndTilt = THREE.MathUtils.degToRad(2);
-const cameraStartZoom = 1;
-const cameraEndZoom = 1.15;
-const cameraScrollEnd = 0.8;
-```
-
-- Position uses `(x, y, z)`.
-- A larger zoom value looks closer.
-- `cameraScrollEnd = 0.8` makes the camera reach its final state at 80% scroll.
-
-### Beam direction and pointer range
-
-```js
-const baseBeamStartYaw = THREE.MathUtils.degToRad(-110);
-const baseBeamEndYaw = THREE.MathUtils.degToRad(-72);
-const baseBeamStartTilt = THREE.MathUtils.degToRad(-2);
-const baseBeamEndTilt = THREE.MathUtils.degToRad(-6);
-
-const horizontalStartRange = THREE.MathUtils.degToRad(30);
-const horizontalEndRange = THREE.MathUtils.degToRad(10);
-const verticalStartRange = THREE.MathUtils.degToRad(16);
-const verticalEndRange = THREE.MathUtils.degToRad(10);
-```
-
-- Yaw controls the horizontal centre of the cursor-controlled range.
-- Tilt controls its vertical centre.
-- Start/end range values control how far the cursor can move the beam before
-  and after scrolling.
-
-### Beam focus and motion
-
-```js
-const beamStartWidth = 1;
-const beamEndWidth = 0.4;
-const followSpeed = 0.07;
-const automaticRotationSpeed = 0.005;
-const scrollFollowSpeed = 0.08;
-```
-
-- A smaller `beamEndWidth` creates a tighter final beam.
-- `followSpeed` controls how quickly it catches the pointer.
-- `automaticRotationSpeed` controls rotation while the pointer is outside.
-- `scrollFollowSpeed` controls camera smoothing behind the physical scroll.
-
-### Top spotlight
-
-```js
-const spotlightStartIntensity = 200;
-const spotlightEndIntensity = 800;
-
-spotlight.position.set(0, 10, 8);
-spotlight.target.position.set(0, 5, 0);
-```
-
-The intensities interpolate across the scroll. Position sets where the light is
-placed; target sets where it points.
-
-### Rendering quality
-
-```js
-const maxPixelRatio = 1.5;
-```
-
-Use `1` for better performance or up to `2` for sharper high-DPI rendering.
-The scene automatically stops rendering when the hero or browser tab is not
-visible.
-
-## Common pitfalls
-
-### The page has a large horizontal scrollbar
-
-- Do not use `width: 100vw`; use `100%`.
-- Keep the canvas CSS width at `100%`.
-- Do not change `renderer.setSize(width, height)` back to
-  `renderer.setSize(width, height, false)`. The latter can expose the high-DPI
-  drawing-buffer width as layout width when the canvas CSS is missing.
-- Check Webflow ancestors for negative margins, X transforms, fixed widths, or
-  horizontal padding added on top of `width: 100%`.
-
-### Sticky positioning does not work
-
-- The scene's direct parent must be the 200vh scroll track.
-- Keep `overflow: visible` on the scroll track and its ancestors.
-- Apply `overflow: hidden` only to `#lighthouse-scene`.
-- Avoid transformed ancestors around the sticky scene.
-
-### `Failed to resolve module specifier "three"`
-
-- Put the import map in the page head.
-- Ensure it appears before the `type="module"` script.
-- Confirm the import-map JSON uses straight double quotes and no trailing
-  commas.
-
-### The lighthouse does not appear
-
-- Open the jsDelivr model URL directly and confirm it responds.
-- Confirm the GitHub repository is public and the GLB is committed normally,
-  not only referenced through Git LFS.
-- Check filename capitalization: `models/Lighthouse_Model.glb`.
-- Look for `Could not load the lighthouse model` in the browser Console.
-
-### Changes pushed to GitHub do not appear immediately
-
-- `@main` URLs can remain cached.
-- Prefer a new Git tag for a release and update both script and model URLs.
-- Confirm Webflow is loading the URL you edited in the Network panel.
-
-### The scene appears twice or runs faster than expected
-
-- Do not paste `main.js` and load it through an external script at the same
-  time.
-- Ensure the page contains only one element with ID `lighthouse-scene`.
-- Check that only one canvas is created inside it.
-
-### The canvas covers Webflow content
-
-- Keep `pointer-events: none` on `#lighthouse-scene`.
-- Give normal hero content a higher z-index than the scene.
-- Keep the scene at z-index `0`.
-
-### The scene is blank in Webflow Designer
-
-Module scripts and custom code may appear as placeholders in Designer. Use
-Preview mode or publish the page before treating this as a loading failure.
+Maintained by **Blurry Works** for **Faros**.
