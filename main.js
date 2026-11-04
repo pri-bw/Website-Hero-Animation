@@ -52,6 +52,9 @@ const beamAxis = new THREE.Vector3(1, 0, 0);
 // Share the ring tilt and front-right focus with the final beam direction.
 const servicesRingTilt = THREE.MathUtils.degToRad(10);
 const servicesFocusAngle = THREE.MathUtils.degToRad(50);
+const mobileServicesFocusAngle = -Math.PI / 2;
+const localServicesBeamDirection = new THREE.Vector3();
+const beamReferenceInverse = new THREE.Quaternion();
 const servicesBeamDirection = new THREE.Vector3(
   Math.cos(servicesFocusAngle),
   Math.sin(servicesRingTilt) * Math.sin(servicesFocusAngle),
@@ -125,23 +128,25 @@ const cameraEndDistance = 22;
 const cameraStartTilt = THREE.MathUtils.degToRad(8);
 const cameraEndTilt = THREE.MathUtils.degToRad(1);
 
-// Phones reveal the upper half from slightly below, then move closer and level out.
+// Phones start low and centered, then rise above the lantern for a downward view.
 const mobileLayout = window.matchMedia("(max-width: 767px), (max-height: 500px) and (pointer: coarse)");
 const mobileModelCenter = new THREE.Vector3();
 const mobileModelSize = new THREE.Vector3();
 let mobileModelIsReady = false;
 let mobileStartDistance = 40;
-const mobileGrowth = 1.25;
+const mobileWidthReserve = 1.25;
+const mobileEndDistanceMultiplier = 1.1;
 const mobileStartTilt = THREE.MathUtils.degToRad(6);
+const mobileEndTilt = THREE.MathUtils.degToRad(-22);
 
 function updateMobileFraming() {
   if (!mobileModelIsReady) return;
   const halfFovTangent = Math.tan(THREE.MathUtils.degToRad(camera.fov / 2));
   // The full tower spans about 80% of the height, with its lower half offscreen.
-  // Reserve horizontal space for the closer final view.
+  // Reserve horizontal breathing room around the tower on narrow screens.
   mobileStartDistance = Math.max(
     mobileModelSize.y / (2 * halfFovTangent * 0.8),
-    mobileModelSize.x * mobileGrowth / (2 * halfFovTangent * camera.aspect * 0.8),
+    mobileModelSize.x * mobileWidthReserve / (2 * halfFovTangent * camera.aspect * 0.8),
   ) + mobileModelSize.z / 2;
 }
 
@@ -343,16 +348,17 @@ function updateCamera(progress) {
   let screenX;
   let screenY;
   if (mobileLayout.matches && mobileModelIsReady) {
-    const distance = THREE.MathUtils.lerp(mobileStartDistance, mobileStartDistance / mobileGrowth, progress);
-    const tilt = THREE.MathUtils.lerp(mobileStartTilt, 0, progress);
+    const distance = THREE.MathUtils.lerp(mobileStartDistance, mobileStartDistance * mobileEndDistanceMultiplier, progress);
+    const tilt = THREE.MathUtils.lerp(mobileStartTilt, mobileEndTilt, progress);
+    const targetY = THREE.MathUtils.lerp(mobileModelCenter.y, orbWorldPosition.y, progress);
     camera.position.set(
       mobileModelCenter.x,
-      mobileModelCenter.y - Math.sin(tilt) * distance,
+      targetY - Math.sin(tilt) * distance,
       mobileModelCenter.z + Math.cos(tilt) * distance,
     );
     camera.rotation.set(tilt, 0, 0);
-    screenX = THREE.MathUtils.lerp(0.6, 0.34, progress);
-    screenY = THREE.MathUtils.lerp(1, 0.95, progress);
+    screenX = 0.5;
+    screenY = THREE.MathUtils.lerp(1, 0.68, progress);
   } else {
     const distance = THREE.MathUtils.lerp(cameraStartDistance, cameraEndDistance, progress);
     const tilt = THREE.MathUtils.lerp(cameraStartTilt, cameraEndTilt, progress);
@@ -389,10 +395,25 @@ const ringUp = new THREE.Vector3().crossVectors(ringAxisZ, ringAxisX).normalize(
 const ringRadial = new THREE.Vector3();
 const ringTangent = new THREE.Vector3();
 const iconOrientation = new THREE.Matrix4();
-const focusAngle = servicesFocusAngle;
+let focusAngle = servicesFocusAngle;
 let orbitAngle = focusAngle;
 const orbitSpeed = (Math.PI * 2) / 45;
 const ringRadius = 6;
+const mobileRingRadius = 4.5;
+
+function updateServicesLayout() {
+  const pitch = mobileLayout.matches ? 0 : servicesRingTilt;
+  ringAxisZ.set(0, Math.sin(pitch), Math.cos(pitch));
+  ringUp.crossVectors(ringAxisZ, ringAxisX).normalize();
+  // From above on phones, aim across the ring so the focus sits above the
+  // lantern on screen, matching the centered mobile composition.
+  focusAngle = mobileLayout.matches ? mobileServicesFocusAngle : servicesFocusAngle;
+  servicesBeamDirection.copy(ringAxisX).multiplyScalar(Math.cos(focusAngle))
+    .addScaledVector(ringAxisZ, Math.sin(focusAngle));
+  beamReferenceInverse.copy(beamReferenceOrientation).invert();
+  localServicesBeamDirection.copy(servicesBeamDirection).applyQuaternion(beamReferenceInverse);
+  fixedBeamOrientation.setFromUnitVectors(beamAxis, localServicesBeamDirection);
+}
 
 function serviceName(filename) {
   return filename.replace(/\.[^.]+$/, "").replace(/^\d+[\s_-]*/, "").replace(/\s+(?:white|black|colou?r)$/i, "").trim();
@@ -547,8 +568,9 @@ function updateServiceRing(delta, progress) {
   const labelWidth = container.clientWidth;
   const labelHeight = container.clientHeight;
   orbitAngle = (orbitAngle - delta * orbitSpeed * reveal) % (Math.PI * 2);
-  // A smaller orbit on phones keeps the focused icon inside the narrow frame.
-  const radius = mobileLayout.matches ? 2.6 : ringRadius;
+  // Leave clearance beyond the roof for the far-side focus in the elevated
+  // phone view. Peripheral icons can travel beyond the narrow frame.
+  const radius = mobileLayout.matches ? mobileRingRadius : ringRadius;
   const iconSpacing = Math.PI * 2 / serviceItems.length;
   for (const item of serviceItems) {
     const angle = orbitAngle + item.angle;
@@ -648,10 +670,7 @@ loader.load(
       beamParentOrientation.copy(lighthousePivot.quaternion).invert();
       beamReferenceOrientation.premultiply(beamParentOrientation);
       updateBeamCompensation();
-      fixedBeamOrientation.setFromUnitVectors(
-        beamAxis,
-        servicesBeamDirection.clone().applyQuaternion(beamReferenceOrientation.clone().invert()),
-      );
+      updateServicesLayout();
       orb.getWorldPosition(orbWorldPosition);
       createServiceRing().catch(error => console.error("Could not create the service ring:", error));
     }
@@ -737,7 +756,8 @@ function animate(time) {
     1,
   );
   // Rotate the lighthouse on the same timeline as the camera.
-  updateLighthouseRotation(mobileLayout.matches ? 0 : cameraProgress);
+  updateServicesLayout();
+  updateLighthouseRotation(cameraProgress);
   updateBeamCompensation();
 
   updateCamera(cameraProgress);

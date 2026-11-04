@@ -30,7 +30,9 @@ focus, it brightens and its name fades in below it, then fades out as it moves o
 Labels are ordinary HTML elements or Webflow component instances; Webflow owns
 their copy and typography while the animation controls positioning and fades.
 
-On phones, the composition uses a separate camera path and smaller orbit. Touch
+On phones, the lighthouse starts centered near the bottom. The camera rises to
+look down on a horizontal ring at lantern height, with the focus above the
+lantern on screen. The orbit is smaller but retains the same animation. Touch
 gestures scroll the page without steering the beam. Rendering pauses when the
 scene or browser tab is hidden.
 
@@ -52,6 +54,7 @@ Three.js is loaded from a pinned CDN URL.
 | [`main.js`](main.js) | Scene setup, camera paths, beam interaction, service orbit, and labels |
 | [`style.css`](style.css) | Local hero layout and sticky scene styling |
 | [`index.html`](index.html) | Standalone development preview and HTML service labels |
+| [`lighthouse-services.html`](lighthouse-services.html) | Separate lantern close-up page, with its own JS and CSS |
 | [`models/`](models/) | Lighthouse GLB asset |
 | [`Iconography/`](Iconography/) | SVG assets for the standalone preview and legacy fallback |
 | [`WEBFLOW.md`](WEBFLOW.md) | Deployment guide for JavaScript inside a Webflow Code Embed |
@@ -67,6 +70,11 @@ python3 -m http.server 8000
 
 Open **http://localhost:8000**. Use a web server rather than opening `index.html`
 directly: the preview loads modules, a GLB, and SVG assets over HTTP.
+
+Open **http://localhost:8000/lighthouse-services.html** for the independent
+services composition: a close-up of the lighthouse lantern on the left, leaving
+space on the right. Its behavior and styling live in `lighthouse-services.js`
+and `lighthouse-services.css`. It shares the GLB asset with the hero.
 
 Check the opening, hover interaction, full scroll transition, reverse scroll,
 and both portrait and landscape layouts when reviewing a change.

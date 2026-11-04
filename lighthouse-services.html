@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Faros · Lighthouse Services by Blurry Works</title>
+    <link rel="stylesheet" href="lighthouse-services.css">
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "https://cdn.jsdelivr.net/npm/three@0.179.1/build/three.module.js",
+          "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.179.1/examples/jsm/"
+        }
+      }
+    </script>
+  </head>
+  <body>
+    <main class="lighthouse-services">
+      <div id="lighthouse-services-scene" aria-hidden="true"></div>
+      <p class="scene-status" role="status">Loading lighthouse…</p>
+    </main>
+    <script type="module" src="lighthouse-services.js"></script>
+  </body>
+</html>

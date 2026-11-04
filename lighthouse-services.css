@@ -1,0 +1,31 @@
+body {
+  margin: 0;
+  background: #031224;
+}
+
+.lighthouse-services {
+  position: relative;
+  height: 100svh;
+  overflow: hidden;
+  background: linear-gradient(to bottom, #010912, #031224);
+}
+
+#lighthouse-services-scene {
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+#lighthouse-services-scene canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.scene-status {
+  position: absolute;
+  left: 2rem;
+  bottom: 1rem;
+  color: #fff5bb;
+  font: 14px/1.5 system-ui, sans-serif;
+}

@@ -250,6 +250,11 @@ not SVG data. Review [Webflow custom-code preview behavior](https://help.webflow
 - Scroll settles to one fixed beam and the pitched, outward-facing icon ring.
 - Labels appear in the overlay with your Webflow styling and fade below the
   focused icons. Reverse scroll hides them and restores the opening.
+- On phones, the opening is centered at the bottom. After scroll the camera
+  looks slightly down on a level ring at the lantern's height; the fixed beam
+  points across the ring toward the focused icon above the lantern on screen.
+  Desktop retains its pitched ring and front-right focus. No extra Webflow
+  elements or attributes are needed for these responsive camera changes.
 - Check portrait/landscape sizes, long names, and clickable Webflow overlays.
 
 ## Updating later

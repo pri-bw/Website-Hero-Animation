@@ -19,6 +19,17 @@ of truth; `index.html` and `style.css` provide the local preview.
 
 ## Coordinates and composition
 
+The independent `lighthouse-services.html` page uses `lighthouse-services.js`
+and `lighthouse-services.css`, with container `#lighthouse-services-scene`.
+It presents a stationary lantern close-up at the left edge / 45% down, cropping
+half the tower and leaving the right side open. Visible height is 2.1 world units
+(or 2.1 / aspect on portrait screens). The orb uses emissive intensity 12 and
+a stronger local light plus a one-time radial-texture sprite for a soft optical
+halo; this decorative glow is separate from the service icon geometry. Narrow viewports pull back to retain horizontal space.
+It renders on load/resize/visibility changes rather than running an idle loop.
+It shares the model and named material overrides, with its own optional
+`data-asset-base`; it does not depend on the hero scroll track or CMS markup.
+
 World +Y is up. The camera is on +Z, so +Z is the front, toward the viewer; +X
 is the right. The lighthouse remains near the world origin. Camera view offsets
 place it on screen without moving the tower or breaking the orbit origin.
@@ -28,10 +39,12 @@ angle is 8° (physically lower than the lantern) and finishes at 1°. The orb mo
 from 70% across / 53% down to 23% across / 43% down the scene.
 
 Mobile: at widths up to 767px, or coarse pointers with heights up to 500px,
-use the model-bounds camera path. It starts with the upper half visible and a
-6° upward view, grows about 25%, and levels out. Keep touch scrolling independent
-of beam steering. The portrait view is intentionally cropped; verify focused
-icons and long labels on narrow screens before release.
+use the model-bounds camera path. Start horizontally centered at the bottom,
+with the upper half visible and a 6° upward view. Pull back 10% and raise
+the camera above the lantern to a 22° downward view, keeping the lantern centered
+at 68% down the final frame to reveal more of the lower tower. The target moves from model midpoint to lantern.
+Tower rotation now shares the desktop timeline. Touch does not steer the beam.
+The portrait view is intentionally cropped; check narrow screens and long labels.
 
 ## Scroll and rendering invariants
 
@@ -69,7 +82,7 @@ Parent-rotation compensation keeps tower rotation from dragging the beam around.
 
 ## Ring and focus decisions
 
-The current ring pitches **front up / back down** by 10° about the left-right
+The desktop ring pitches **front up / back down** by 10° about the left-right
 axis. It does **not** bank left-to-right. Orthonormal axes are:
 
 - X: `(1, 0, 0)`
@@ -80,7 +93,16 @@ The focus is 50° from +X toward the front within this plane. The beam's world
 direction is `X * cos(focusAngle) + Front * sin(focusAngle)`. This puts the
 highlight farther toward the viewer while retaining a rightward component.
 
-All successfully loaded service icons have equal angular spacing, independent of count. Radius is 6 desktop / 2.6 mobile, with a
+On mobile the ring pitch is zero: every icon center stays at the orb's height.
+The elevated camera provides its visible perspective. The mobile focus is -90°
+(away from the camera, across the ring), placing the highlighted icon above the
+lantern in the centered frame. `updateServicesLayout()` updates the ring basis,
+focus, and final beam direction together, including when crossing breakpoints.
+The 4.5 mobile radius tightens the orbit without changing icon sizes;
+peripheral icons may leave the portrait frame. Keep the same orbit speed,
+curved outward icons, fades, and single final beam.
+
+All successfully loaded service icons have equal angular spacing, independent of count. Radius is 6 desktop / 4.5 mobile, with a
 45-second full orbit at full reveal. They fade in during the second half of the
 camera transition. Focus brightens and enlarges the nearest icon smoothly.
 
@@ -170,6 +192,14 @@ as passed.
 
 ## Decision history
 
+- **2026-10-22 (services close-up):** Move the lantern center to the left edge,
+  reduce framing height from 2.8 to 2.1, and add a warm optical halo so the
+  closer, half-cropped lighthouse has a visibly stronger glow.
+
+- **2026-10-22 (services page):** Add an independent lantern close-up page and
+  module so the services composition can evolve separately from the hero.
+  Use an offset camera and a stationary scene with open space on the right.
+
 - **2026-10-08:** `Alternative-Services` introduces opposing opening beams, a
   leftward services composition, nine orbiting SVGs, and a fixed final beam.
   Later refinements add curved outward-facing meshes and shared beam/ring focus.
@@ -187,3 +217,10 @@ as passed.
   in texture copies and supersample small SVGs. Move actual CMS label wrappers
   into the overlay. Use dynamic icon counts with explicit empty/error behavior;
   retain the filesystem list only when the CMS marker is absent.
+- **2026-10-15 (mobile composition):** Center the opening at the bottom; raise
+  the final camera to a 22° downward view. Use a horizontal ring at lantern height
+  and an across-ring focus/beam above the lantern on screen, following the mobile
+  reference. Keep desktop composition intact and update both layouts on resize.
+- **2026-10-15 (mobile framing refinement):** Pan the final viewport down by
+  moving the lantern anchor from 76% to 68% of screen height. Reduce mobile ring
+  radius from 5.2 to 4.5; retain camera elevation, icon sizes, and animation timing.
