@@ -14,19 +14,47 @@ of truth; `index.html` and `style.css` provide the local preview.
   `WEBFLOW.md`, and update that guide when integration changes.
 - Do not publish, push, or modify the live website unless requested.
 - Preserve model materials and exported normals except for the named glass/orb
-  overrides. Measure the model before adding decorative beams.
+  overrides and the services-only matte finish described below. Measure the model
+  before adding decorative beams.
 - Do not replace the service SVGs with generated artwork or camera-facing icons.
 
 ## Coordinates and composition
 
 The independent `lighthouse-services.html` page uses `lighthouse-services.js`
 and `lighthouse-services.css`, with container `#lighthouse-services-scene`.
-It presents a stationary lantern close-up at the left edge / 45% down, cropping
-half the tower and leaving the right side open. Visible height is 2.1 world units
+It presents a lantern close-up at the left edge / 45% down, cropping
+half the tower and leaving the right side open. Opening visible height is 2.1 world units
 (or 2.1 / aspect on portrait screens). The orb uses emissive intensity 12 and
-a stronger local light plus a one-time radial-texture sprite for a soft optical
-halo; this decorative glow is separate from the service icon geometry. Narrow viewports pull back to retain horizontal space.
-It renders on load/resize/visibility changes rather than running an idle loop.
+a local light at intensity 2 plus a one-time radial-texture sprite for a soft optical
+halo, plus a broad additive screen-space spill anchored to the projected orb.
+The spill's elliptical haze and soft ray fade to zero without a hard boundary.
+Narrow viewports pull back to retain horizontal space. A lantern-centered pivot
+rotates the model continuously in one direction at 0.6 degrees per second; no pointer
+input moves the camera. Scroll over the two-spread
+`[data-services-track]` wrapper narrows FOV from 24 to 21 degrees and dollies the
+camera 4% closer (zoom stays 1), preserving the opening distance calculation at
+24 degrees so the lens change is not cancelled. At widths up to
+767px (or coarse pointers with heights up to 500px), the view offset also pans
+the lantern from the left edge to 58% of a viewport outside the left edge,
+completing at 45% of scroll travel. Desktop shifts it left by 3% of viewport width
+over the full zoom transition.
+The scene is sticky behind two transparent 100svh content sections. Progress is
+clamped over wrapper height minus scene height; reverse scroll restores the opening.
+Delta-time smoothing eases scroll; rotation runs while visible and pauses
+offscreen/hidden or after mobile has exited. Reduced motion disables automatic
+rotation and applies scroll positions directly.
+Resize changes renderer size only when needed, not on every animation frame.
+The blue key spotlight uses intensity 5000, a 45-degree cone, and full penumbra
+for a gentler wash; keep the optical glow independent of tower illumination.
+Services-only materials are cloned once per shared source material, retaining
+maps and normals. Roughness is at least 0.85, metalness at most 0.15, environment
+intensity is multiplied by 0.35, and physical specular/clearcoat are reduced.
+Glass uses roughness 0.3 and specular intensity 0.35; the emissive orb stays bright.
+Services glazing uses non-refracting transparency (transmission 0, opacity 0.14,
+thickness 0, FrontSide, depthWrite false) to avoid layered refraction/transparent
+back-face artifacts during rotation. Keep depth testing on so the opaque frame
+occludes the glass. This is a thin tinted pane, not a volumetric glass simulation.
+The GLB and homepage material settings remain unchanged.
 It shares the model and named material overrides, with its own optional
 `data-asset-base`; it does not depend on the hero scroll track or CMS markup.
 
@@ -191,6 +219,18 @@ and missing-label behavior. Report browser limitations honestly rather than mark
 as passed.
 
 ## Decision history
+
+- **2026-11-05 (services interaction):** Add lantern-linked light spill and a
+  reversible lens zoom/dolly across two stacked spreads. Replace pointer camera movement
+  with a continuous 0.6-degree/second rotation, shift desktop framing 3% left, and complete
+  mobile's left exit at 45% of scroll travel so content clears sooner.
+  Reduce mobile travel to 58% of a viewport; lower/widen the blue key light and
+  halve the lantern's local light to soften illumination on the model.
+  Narrow FOV 24 to 21 degrees with a 4% dolly, and apply cloned matte material
+  adjustments only to this page to reduce reflections without editing the GLB.
+  Replace services glass refraction/double-sided blending with a thin front-face
+  tint to address reported flickering of the visible interior during rotation.
+  Use a sticky background and explicit track marker so Webflow owns both sections.
 
 - **2026-10-22 (services close-up):** Move the lantern center to the left edge,
   reduce framing height from 2.8 to 2.1, and add a warm optical halo so the

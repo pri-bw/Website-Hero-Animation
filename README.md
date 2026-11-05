@@ -74,7 +74,11 @@ directly: the preview loads modules, a GLB, and SVG assets over HTTP.
 Open **http://localhost:8000/lighthouse-services.html** for the independent
 services composition: a close-up of the lighthouse lantern on the left, leaving
 space on the right. Its behavior and styling live in `lighthouse-services.js`
-and `lighthouse-services.css`. It shares the GLB asset with the hero.
+and `lighthouse-services.css`. It shares the GLB asset with the hero. A soft
+lantern glow bleeds in from the left, and the softly lit lighthouse slowly rotates
+in one direction by itself.
+Scrolling between two full-height spreads zooms in; on mobile the lighthouse
+also pans off the left edge early in the transition to clear the second spread.
 
 Check the opening, hover interaction, full scroll transition, reverse scroll,
 and both portrait and landscape layouts when reviewing a change.

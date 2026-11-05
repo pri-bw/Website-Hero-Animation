@@ -284,6 +284,59 @@ warning—it does not silently display the unrelated local services. Invalid or
 failed icons are skipped and the remaining icons are spaced evenly. Missing
 labels warn and leave the valid icon visible. No CMS/API credentials are used.
 
+## Independent services page
+
+The services close-up uses `lighthouse-services.js`, independently of `main.js`.
+Use the same pinned import map above, but load only the complete services module
+on this page. Keep the absolute `data-asset-base` pointing to the published model
+directory when pasting the module inline.
+
+Wrap the background scene and your two existing Webflow sections together:
+
+```html
+<main class="lighthouse-services" data-services-track>
+  <div id="lighthouse-services-scene"
+       data-asset-base="https://cdn.jsdelivr.net/gh/pri-bw/Website-Hero-Animation@YOUR_COMMIT/"
+       aria-hidden="true"></div>
+  <div class="services-content">
+    <section class="services-spread"><!-- First Webflow section --></section>
+    <section class="services-spread"><!-- Second Webflow section --></section>
+  </div>
+</main>
+```
+
+Replace `YOUR_COMMIT` with the published asset revision. Apply the styles from
+`lighthouse-services.css` (using your existing section classes is fine). The
+track is relative; the scene is sticky at top 0, height `100svh`, margin-bottom
+`-100svh`, and z-index 0. The content wrapper is relative with z-index 1; each
+section is at least `100svh`. Sections must have transparent backgrounds to
+show the canvas. Keep track/ancestor overflow visible so sticky positioning works;
+clip overflow on the scene itself. Do not add another fixed canvas or module.
+
+Scroll progress comes from track height minus scene height, so two `100svh`
+sections provide one viewport of transition. A single-height wrapper renders
+the opening without a scroll transition. The explicit track marker lets you nest
+the scene inside another wrapper if needed, provided sticky positioning still
+spans both sections; without the marker the scene's parent is the fallback.
+
+The camera narrows its FOV from 24 to 21 degrees and moves 4% closer while
+shifting the lighthouse left by 3% of
+viewport width. The lighthouse rotates continuously in one direction at a gentle
+0.6 degrees per second, with no mouse response. The glow stays anchored to the
+lantern; reduced, broader lighting and services-only matte material adjustments
+soften the tower's highlights. The model asset and homepage finish are unchanged.
+Services glass is a lightly tinted, front-face-only transparent pane without
+refraction, avoiding layered glass artifacts over the interior during rotation.
+At widths up to 767px (also coarse-pointer landscape up to 500px high), the
+lighthouse moves 58% of a viewport left, completing its exit at 45% of scroll travel to clear the second
+section early. Reversing scroll restores its opening position. Reduced-motion
+preferences disable automatic rotation and scroll easing. These adjustments use
+the same layout; replace only the complete services module for this update.
+
+Check first/second spreads, reverse scroll, automatic rotation, phone portrait/landscape,
+breakpoint resizing, transparent overlays, and clickable Webflow content before
+publishing. The local `lighthouse-services.html` mirrors this two-section layout.
+
 ## Troubleshooting
 
 | Symptom | Check |

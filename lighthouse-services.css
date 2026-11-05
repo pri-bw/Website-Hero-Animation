@@ -5,15 +5,27 @@ body {
 
 .lighthouse-services {
   position: relative;
-  height: 100svh;
-  overflow: hidden;
   background: linear-gradient(to bottom, #010912, #031224);
 }
 
 #lighthouse-services-scene {
+  position: sticky;
+  top: 0;
   width: 100%;
-  height: 100%;
+  height: 100svh;
+  margin-bottom: -100svh;
+  overflow: hidden;
   pointer-events: none;
+  z-index: 0;
+}
+
+.services-content {
+  position: relative;
+  z-index: 1;
+}
+
+.services-spread {
+  min-height: 100svh;
 }
 
 #lighthouse-services-scene canvas {
